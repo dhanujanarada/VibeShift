@@ -1,7 +1,10 @@
+print("film_conditioner.py STARTED")
+
 import torch
 import torch.nn as nn
 from utills.embedding import GenreEmbedding, TimeEmbedding
 
+print("ABOUT TO DEFINE FiLMConditioner")
 
 class FiLMConditioner(nn.Module):
     def __init__(self, embed_dim, num_genres, hidden_dim=512):
