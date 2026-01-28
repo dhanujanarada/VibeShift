@@ -49,6 +49,39 @@ class PatchEmbedding(nn.Module):
         x = x.transpose(1, 2)  
         return x
 
+class MelPatchEmbedding(nn.Module):
+    """Extract 2D patches from mel spectrograms with proper channel handling"""
+    
+    def __init__(self, patch_height, patch_width, embed_dim, in_channels=1):
+        super().__init__()
+        self.patch_height = patch_height
+        self.patch_width = patch_width
+        self.embed_dim = embed_dim
+        self.in_channels = in_channels
+        
+        # Project flattened 2D patches (include channels)
+        patch_dim = patch_height * patch_width * in_channels
+        self.proj = nn.Linear(patch_dim, embed_dim)
+    
+    def forward(self, x):
+        """
+        Args:
+            x: (B, C, n_mels, time_steps)
+        
+        Returns:
+            (B, num_patches, embed_dim)
+        """
+        B, C, H, W = x.shape
+        
+        # Extract 2D patches using unfold
+        patches = x.unfold(2, self.patch_height, self.patch_height)  # (B, C, H', W, patch_height)
+        patches = patches.unfold(3, self.patch_width, self.patch_width)  # (B, C, H', W', patch_height, patch_width)
+        
+        # Reshape to (B, num_patches, C*patch_height*patch_width)
+        patches = patches.permute(0, 2, 3, 1, 4, 5).contiguous()  # (B, H', W', C, patch_height, patch_width)
+        patches = patches.reshape(B, -1, C * self.patch_height * self.patch_width)  # (B, num_patches, patch_dim)
+        
+        return self.proj(patches)
 
 class RoPEEmbedding(nn.Module):
     """Multi-head attention with Rotary Position Embeddings"""
