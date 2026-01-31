@@ -14,7 +14,7 @@ VibeShift transforms music from one genre to another using state-of-the-art gene
 
 ### Prerequisites
 - Python 3.10.x (3.11 not supported due to dependencies)
-- [uv](https://github.com/astral-sh/uv) package manager (recommended)
+- [uv](https://github.com/astral-sh/uv) package manager 
 - FFmpeg (for audio processing)
 
 ### Installation
@@ -30,8 +30,7 @@ cd VibeShift
 # Windows (PowerShell)
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# macOS/Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
+
 ```
 
 3. **Set up the environment**
@@ -43,8 +42,7 @@ uv sync
 # Windows
 .venv\Scripts\activate
 
-# macOS/Linux
-source .venv/bin/activate
+
 ```
 
 ## Running the Application
@@ -62,8 +60,8 @@ Open your browser and navigate to: `http://localhost:8000`
 
 ### Training
 
-1. **Prepare your dataset**
-Place audio files in the appropriate directories:
+1. **Prepare the dataset**
+Audio files are in the appropriate directories:
 - `data/rock_audio_files/` for rock genre
 - `data/nonrock_audio_files/` for other genres
 
@@ -72,7 +70,7 @@ Place audio files in the appropriate directories:
 python train.py
 ```
 
-Training configuration can be modified in:
+Configuration are in:
 - `configs/dit.yaml` - DiT model architecture
 - `configs/flow.yaml` - Flow matching parameters
 - `configs/genres.yaml` - Genre mappings
@@ -81,7 +79,7 @@ Training configuration can be modified in:
 
 **Run inference on a single audio file:**
 ```bash
-python inference.py --input path/to/audio.mp3 --target-genre rock
+
 ```
 
 ## Project Structure
@@ -121,12 +119,10 @@ dit_model:
   num_genres: 10        # Number of supported genres
 ```
 
-### Genre Mappings (`configs/genres.yaml`)
-Define source and target genre mappings for transformation.
 
 ## Development
 
-### Testing Models
+### Testing
 ```bash
 # Test DiT model
 jupyter notebook test/test_dit_model.ipynb
@@ -135,11 +131,6 @@ jupyter notebook test/test_dit_model.ipynb
 jupyter notebook test/test_flow_matching.ipynb
 ```
 
-### Adding New Features
-1. Create feature branch: `git checkout -b feature-name`
-2. Make changes and test thoroughly
-3. Commit: `git commit -m "Description"`
-4. Push: `git push origin feature-name`
 
 ## Troubleshooting
 
@@ -156,7 +147,7 @@ uv sync
 ### PyTorch Import Errors
 Ensure you're using Python 3.10.x:
 ```bash
-python --version  # Should show 3.10.x
+python --version  
 ```
 
 ### FFmpeg Not Found
@@ -164,11 +155,3 @@ Install FFmpeg:
 - **Windows**: `choco install ffmpeg` or download from [ffmpeg.org](https://ffmpeg.org)
 - **macOS**: `brew install ffmpeg`
 - **Linux**: `sudo apt install ffmpeg`
-
-## License
-
-[Your License Here]
-
-## Contributors
-
-[Your Contributors Here]
