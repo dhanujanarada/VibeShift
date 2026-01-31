@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="glass-container">
+  <h1 class="title">
+    🎸 VibeShift
+  </h1>
+  <p class="subtitle">
+    Transform any music to rock with AI
+  </p>
+
+  {% include "partials/upload_form.html" %}
+
+  <div id="result" class="mt-6"></div>
+</div>
+{% endblock %}

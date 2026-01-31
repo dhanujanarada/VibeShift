@@ -1,0 +1,45 @@
+<form
+  hx-post="/transform"
+  hx-target="#result"
+  hx-swap="innerHTML"
+  hx-indicator="#loading"
+  enctype="multipart/form-data"
+  class="upload-form"
+>
+  <div class="file-input-wrapper">
+    <input
+      type="file"
+      name="audio"
+      id="audio-file"
+      accept=".wav,.flac,.mp3"
+      required
+      onchange="updateFileLabel(this)"
+    />
+    <label for="audio-file" class="file-input-label" id="file-label">
+      <span style="font-size: 1.5rem;">📁</span>
+      <span id="file-text">Choose an audio file</span>
+    </label>
+  </div>
+
+  <button type="submit" class="btn btn-primary">
+    🎸 Transform to Rock
+  </button>
+
+  <div id="loading" class="loading-container">
+    {% include "partials/loading.html" %}
+  </div>
+</form>
+
+<script>
+function updateFileLabel(input) {
+  const label = document.getElementById('file-label');
+  const text = document.getElementById('file-text');
+  if (input.files && input.files[0]) {
+    text.textContent = input.files[0].name;
+    label.classList.add('has-file');
+  } else {
+    text.textContent = 'Choose an audio file';
+    label.classList.remove('has-file');
+  }
+}
+</script>
