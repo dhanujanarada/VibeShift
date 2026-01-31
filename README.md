@@ -46,35 +46,8 @@ VibeShift transforms music from one genre to another using state-of-the-art gene
 
 **Note:** Python 3.10.x and uv will be installed automatically by the setup script.
 
-### Quick Start (Automated Setup)
+### Quick Start 
 
-This is the **recommended** method when cloning to a new machine:
-
-#### Windows
-```bash
-git clone <repository-url>
-cd VibeShift
-setup.bat
-```
-
-#### macOS/Linux
-```bash
-git clone <repository-url>
-cd VibeShift
-chmod +x setup.sh
-./setup.sh
-```
-
-The setup script will automatically:
-- ✅ Install `uv` package manager if not present
-- ✅ Install Python 3.10 using uv
-- ✅ Create a virtual environment
-- ✅ Install all project dependencies
-- ✅ Verify the installation
-
-### Manual Setup (Alternative)
-
-If you prefer manual setup or the automated script fails:
 
 1. **Clone the repository**
 ```bash
