@@ -35,3 +35,7 @@ non_rock_genres:
   79: Instrumental
   96: Minimal Electronic
   144: Soundtrack
+
+GENRES:
+  rock: 1
+  non_rock: 0

@@ -2,26 +2,16 @@
 # Diffusion Transformer for genre transformation with flow matching
 
 dit_model:
-  # Input patch dimension
-  patch_dim: 512
-  
-  # Embedding dimension
-  embed_dim: 512
-  
-  # Number of transformer blocks
+  dit_model:
+  patch_dim: 640       # patch_height * patch_width = 10 * 64
+  embed_dim: 768
   num_blocks: 12
-  
-  # Number of attention heads
-  num_heads: 8
-  
-  # Number of genres
+  num_heads: 12
   num_genres: 2
-  
-  # Hidden dimension for MLP layers
-  hidden_dim: 2048
-  
-  # Dropout rate
+  hidden_dim: 3072
   dropout: 0.1
+  patch_height: 10     # 100 n_mels / 10 = 10 patches vertically
+  patch_width: 64      # ~2811 / 64 = 44 patches (will pad to 2816)
 
 # DiTBlock specific parameters
 dit_block:
