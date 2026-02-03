@@ -2,32 +2,6 @@
 
 AI-powered music genre transformation using Flow Matching and Diffusion Transformers (DiT).
 
-## 🚀 Quick Start
-
-**Clone and run in 2 commands:**
-
-```bash
-# Windows
-git clone <repository-url> && cd VibeShift && setup.bat
-
-# macOS/Linux
-git clone <repository-url> && cd VibeShift && chmod +x setup.sh && ./setup.sh
-```
-
-Then activate the environment and start the server:
-```bash
-# Windows
-.venv\Scripts\activate
-uvicorn app.main:app --reload
-
-# macOS/Linux  
-source .venv/bin/activate
-uvicorn app.main:app --reload
-```
-
-Visit: `http://localhost:8000`
-
----
 
 ## Project Overview
 
@@ -37,17 +11,12 @@ VibeShift transforms music from one genre to another using state-of-the-art gene
 - **FiLM conditioning** for genre control
 - **Mel-spectrogram processing** for audio representation
 
-## Setup
-
 ### Prerequisites
 - Git
 - FFmpeg (for audio processing)
 - Internet connection (for downloading dependencies)
 
-**Note:** Python 3.10.x and uv will be installed automatically by the setup script.
-
 ### Quick Start 
-
 
 1. **Clone the repository**
 ```bash
@@ -60,8 +29,7 @@ cd VibeShift
 # Windows (PowerShell)
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# macOS/Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
+
 ```
 
 3. **Install Python 3.10 and setup environment**
@@ -76,8 +44,7 @@ uv sync
 # Windows
 .venv\Scripts\activate
 
-# macOS/Linux
-source .venv/bin/activate
+
 ```
 
 ### Verify Installation
@@ -91,23 +58,22 @@ python -c "import torch; print(f'PyTorch {torch.__version__}')"
 
 ## Running the Application
 
-### Frontend (Web Interface)
-
-1. **Start the FastAPI server**
 ```bash
-# Make sure virtual environment is activated
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Windows
+.venv\Scripts\activate
+uvicorn app.main:app --reload
+
 ```
 
-2. **Access the web interface**
-Open your browser and navigate to: `http://localhost:8000`
+Visit: `http://localhost:8000`
+
 
 ### Training
 
 1. **Prepare the dataset**
 Audio files are in the appropriate directories:
 - `data/rock_audio_files/` for rock genre
-- `data/nonrock_audio_files/` for other genres
+- `data/classical/` for classical
 
 2. **Run training**
 ```bash
