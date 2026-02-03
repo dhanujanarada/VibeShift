@@ -1,198 +1,241 @@
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Tuple, Optional
+
 import torch
 from torch.utils.data import DataLoader
-from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR
-import os
-import sys
-from pathlib import Path
-from tqdm import tqdm
-import wandb
+
 from models.dit import DiT
 from models.flow import FlowMatching
-
-# filepath: c:\Users\Dhanuja\Desktop\Vibeshift\VibeShift\training\training.py
-import torch.nn as nn
-
-# Add parent directory to path
-sys.path.append(str(Path(__file__).parent.parent))
+from training.dataloader import RandomPairMelDataset
 
 
-
-class Trainer:
-    def __init__(
-        self,
-        model,
-        train_loader,
-        val_loader,
-        device='cuda',
-        lr=1e-4,
-        num_epochs=100,
-        checkpoint_dir='checkpoints',
-        use_wandb=False,
-        project_name='vibeshift'
-    ):
-        self.model = model.to(device)
-        self.train_loader = train_loader
-        self.val_loader = val_loader
-        self.device = device
-        self.num_epochs = num_epochs
-        self.checkpoint_dir = checkpoint_dir
-        self.use_wandb = use_wandb
-        
-        # Optimizer and scheduler
-        self.optimizer = AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)
-        self.scheduler = CosineAnnealingLR(self.optimizer, T_max=num_epochs)
-        
-        # Create checkpoint directory
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        
-        # Initialize wandb
-        if use_wandb:
-            wandb.init(project=project_name, config={
-                'lr': lr,
-                'num_epochs': num_epochs,
-                'batch_size': train_loader.batch_size
-            })
-    
-    def train_epoch(self, epoch):
-        self.model.train()
-        total_loss = 0
-        
-        pbar = tqdm(self.train_loader, desc=f'Epoch {epoch+1}/{self.num_epochs}')
-        for batch_idx, batch in enumerate(pbar):
-            # Unpack batch (adjust based on your dataset)
-            x0 = batch['source'].to(self.device)  # Source mel spectrograms
-            x1 = batch['target'].to(self.device)  # Target mel spectrograms
-            genre_ids = batch['genre_id'].to(self.device)  # Target genre IDs
-            
-            # Forward pass
-            loss = self.model(x0, x1, genre_ids)
-            
-            # Backward pass
-            self.optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            self.optimizer.step()
-            
-            total_loss += loss.item()
-            pbar.set_postfix({'loss': loss.item()})
-            
-            # Log to wandb
-            if self.use_wandb:
-                wandb.log({
-                    'train_loss': loss.item(),
-                    'epoch': epoch,
-                    'step': epoch * len(self.train_loader) + batch_idx
-                })
-        
-        avg_loss = total_loss / len(self.train_loader)
-        return avg_loss
-    
-    def validate(self, epoch):
-        self.model.eval()
-        total_loss = 0
-        
-        with torch.no_grad():
-            for batch in tqdm(self.val_loader, desc='Validation'):
-                x0 = batch['source'].to(self.device)
-                x1 = batch['target'].to(self.device)
-                genre_ids = batch['genre_id'].to(self.device)
-                
-                loss = self.model(x0, x1, genre_ids)
-                total_loss += loss.item()
-        
-        avg_loss = total_loss / len(self.val_loader)
-        
-        if self.use_wandb:
-            wandb.log({
-                'val_loss': avg_loss,
-                'epoch': epoch
-            })
-        
-        return avg_loss
-    
-    def save_checkpoint(self, epoch, val_loss, is_best=False):
-        checkpoint = {
-            'epoch': epoch,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.scheduler.state_dict(),
-            'val_loss': val_loss
-        }
-        
-        # Save regular checkpoint
-        checkpoint_path = os.path.join(self.checkpoint_dir, f'checkpoint_epoch_{epoch}.pt')
-        torch.save(checkpoint, checkpoint_path)
-        
-        # Save best model
-        if is_best:
-            best_path = os.path.join(self.checkpoint_dir, 'best_model.pt')
-            torch.save(checkpoint, best_path)
-            print(f'Saved best model with val_loss: {val_loss:.4f}')
-    
-    def train(self):
-        best_val_loss = float('inf')
-        
-        for epoch in range(self.num_epochs):
-            # Train
-            train_loss = self.train_epoch(epoch)
-            print(f'Epoch {epoch+1}/{self.num_epochs} - Train Loss: {train_loss:.4f}')
-            
-            # Validate
-            val_loss = self.validate(epoch)
-            print(f'Epoch {epoch+1}/{self.num_epochs} - Val Loss: {val_loss:.4f}')
-            
-            # Update learning rate
-            self.scheduler.step()
-            
-            # Save checkpoint
-            is_best = val_loss < best_val_loss
-            if is_best:
-                best_val_loss = val_loss
-            
-            self.save_checkpoint(epoch, val_loss, is_best)
-        
-        if self.use_wandb:
-            wandb.finish()
-        
-        print(f'Training complete. Best val_loss: {best_val_loss:.4f}')
+@dataclass
+class TrainingConfig:
+	num_epochs: int = 10
+	batch_size: int = 2
+	learning_rate: float = 1e-4
+	weight_decay: float = 1e-4
+	grad_clip_norm: float = 1.0
+	checkpoint_interval: int = 1
+	checkpoint_dir: str = "checkpoints"
+	device: str = "cuda" if torch.cuda.is_available() else "cpu"
+	max_time: Optional[int] = None
+	patch_height: int = 10
+	patch_width: int = 4
+	embed_dim: int = 256
+	num_blocks: int = 4
+	num_heads: int = 4
+	hidden_dim: int = 1024
+	dropout: float = 0.1
+	num_genres: int = 2
+	in_channels: int = 1
 
 
-def main():
-    # Set device
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f'Using device: {device}')
-    
-    # Initialize DiT model
-    dit = DiT(
-        use_mel_patches=True,
-        patch_height=8,
-        patch_width=8,
-        in_channels=1
-    )
-    
-    # Wrap with Flow Matching
-    model = FlowMatching(dit)
-    
-    # TODO: Create your dataloaders
-    # train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    # val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
-    
-    # Initialize trainer
-    trainer = Trainer(
-        model=model,
-        train_loader=None,  # Replace with your train_loader
-        val_loader=None,    # Replace with your val_loader
-        device=device,
-        lr=1e-4,
-        num_epochs=100,
-        checkpoint_dir='checkpoints',
-        use_wandb=False
-    )
-    
-    # Start training
-    # trainer.train()
+class TrainingPipeline:
+	def __init__(self, config: TrainingConfig):
+		self.config = config
+		self.device = torch.device(config.device)
+
+		# Lightweight DiT configuration
+		self.dit = DiT(
+			in_channels=self.config.in_channels,
+			patch_height=self.config.patch_height,
+			patch_width=self.config.patch_width,
+			embed_dim=self.config.embed_dim,
+			num_blocks=self.config.num_blocks,
+			num_heads=self.config.num_heads,
+			hidden_dim=self.config.hidden_dim,
+			num_genres=self.config.num_genres,
+			dropout=self.config.dropout,
+		).to(self.device)
+
+		self.flow = FlowMatching(
+			self.dit,
+			use_genre_loss=True,
+			genre_loss_weight=0.5,
+			num_genres=self.config.num_genres,
+			mel_height=100,
+			mel_width=512,
+		).to(self.device)
+		self.optimizer = torch.optim.AdamW(
+			self.flow.parameters(),
+			lr=self.config.learning_rate,
+			weight_decay=self.config.weight_decay,
+		)
+
+		# Add scheduler after optimizer
+		self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+			self.optimizer,
+			mode='min',
+			factor=0.5,
+			patience=3
+		)
+
+		self.checkpoint_dir = Path(self.config.checkpoint_dir)
+		self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+	def collate_fn(self, batch: List[Tuple[torch.Tensor, torch.Tensor]]):
+		x0_list, x1_list = zip(*batch)
+		max_time = max(x.shape[-1] for x in x0_list)
+		if self.config.max_time is not None:
+			max_time = min(max_time, self.config.max_time)
+
+		def pad(x: torch.Tensor):
+			if x.shape[-1] > max_time:
+				return x[..., :max_time]
+			pad_amt = max_time - x.shape[-1]
+			if pad_amt == 0:
+				return x
+			return torch.nn.functional.pad(x, (0, pad_amt))
+
+		x0 = torch.stack([pad(x) for x in x0_list])
+		x1 = torch.stack([pad(x) for x in x1_list])
+
+		mask = torch.zeros((len(batch), 1, 1, max_time))
+		for i, x in enumerate(x0_list):
+			mask[i, :, :, : x.shape[-1]] = 1
+
+		return x0, x1, mask
+
+	def setup_data(self, source_files: List[str], target_files: List[str]) -> DataLoader:
+		dataset = RandomPairMelDataset(source_files, target_files)
+		loader = DataLoader(
+			dataset,
+			batch_size=self.config.batch_size,
+			shuffle=True,
+			num_workers=0,
+			collate_fn=self.collate_fn,
+		)
+		return loader
+
+	def save_checkpoint(
+		self,
+		epoch: int,
+		avg_loss: float,
+		is_best: bool = False,
+		best_loss: Optional[float] = None,
+	) -> str:
+		ckpt_path = self.checkpoint_dir / f"checkpoint_epoch_{epoch:03d}.pt"
+		state = {
+			"epoch": epoch,
+			"avg_loss": avg_loss,
+			"best_loss": best_loss if best_loss is not None else avg_loss,
+			"model_state": self.flow.state_dict(),
+			"optimizer_state": self.optimizer.state_dict(),
+			"scheduler_state": self.scheduler.state_dict(),  # Save scheduler
+			"config": self.config.__dict__,
+		}
+		torch.save(state, ckpt_path)
+		
+		if is_best:
+			best_path = self.checkpoint_dir / "best_model.pt"
+			torch.save(state, best_path)
+			print(f"✓ Saved best model: loss={avg_loss:.4f}")
+		
+		return str(ckpt_path)
+
+	def load_checkpoint(self, ckpt_path: str):
+		checkpoint = torch.load(ckpt_path, map_location=self.device)
+		self.flow.load_state_dict(checkpoint['model_state'])
+		self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+		self.scheduler.load_state_dict(checkpoint['scheduler_state'])  # Restore scheduler
+		return checkpoint
+
+	def train(
+		self,
+		loader: DataLoader,
+		start_epoch: int = 1,
+		end_epoch: Optional[int] = None,
+		best_loss: Optional[float] = None,
+	) -> List[float]:
+		self.flow.train()
+		losses: List[float] = []
+		best_loss = best_loss if best_loss is not None else float('inf')
+		printed_shapes = False
+
+		if end_epoch is None:
+			end_epoch = self.config.num_epochs
+		if start_epoch > end_epoch:
+			return losses
+
+		for epoch in range(start_epoch, end_epoch + 1):
+			print(f"\nEpoch {epoch}/{self.config.num_epochs} started")
+			epoch_loss = 0.0
+			for step, (x0, x1, mask) in enumerate(loader, start=1):
+				x0 = x0.to(self.device)
+				x1 = x1.to(self.device)
+				mask = mask.to(self.device)
+
+				if not printed_shapes:
+					print("Starting batch shapes:")
+					print(f"  x0: {x0.shape}")
+					print(f"  x1: {x1.shape}")
+					print(f"  mask: {mask.shape}")
+					printed_shapes = True
+
+				# Apply mask to ignore padded regions
+				x0 = x0 * mask
+				x1 = x1 * mask
+
+				genre_ids = torch.ones(x0.size(0), device=self.device, dtype=torch.long)
+
+			loss, loss_dict = self.flow.compute_loss(x0, x1, genre_ids)
+
+			self.optimizer.zero_grad()
+			loss.backward()
+			torch.nn.utils.clip_grad_norm_(self.flow.parameters(), self.config.grad_clip_norm)
+			self.optimizer.step()
+
+			epoch_loss += loss.item()
+
+			if step % 10 == 0 or step == len(loader):
+				loss_str = f"Loss: {loss.item():.4f}"
+				if 'flow_matching_loss' in loss_dict:
+					loss_str += f" | Flow: {loss_dict['flow_matching_loss']:.4f}"
+				if 'genre_classifier_loss' in loss_dict:
+					loss_str += f" | Genre: {loss_dict['genre_classifier_loss']:.4f}"
+				print(f"Epoch {epoch}/{self.config.num_epochs} - Step {step}/{len(loader)} - {loss_str}")
+			self.scheduler.step(avg_loss)
+			
+		# Check if best model and save immediately
+		is_best = avg_loss < best_loss
+		if is_best:
+			best_loss = avg_loss
+			print(f"🌟 New best loss: {best_loss:.4f}")
+			# Save best model immediately
+			best_path = self.checkpoint_dir / "best_model.pt"
+			state = {
+				"epoch": epoch,
+				"avg_loss": avg_loss,
+				"best_loss": best_loss,
+				"model_state": self.flow.state_dict(),
+				"optimizer_state": self.optimizer.state_dict(),
+				"scheduler_state": self.scheduler.state_dict(),
+				"config": self.config.__dict__,
+			}
+			torch.save(state, best_path)
+			print(f"✓ Saved best model instantly: {best_path}")
+		
+		# Save regular checkpoints at specified intervals
+		if epoch % self.config.checkpoint_interval == 0:
+			print(f"Saving checkpoint for epoch {epoch}...")
+			ckpt = self.save_checkpoint(
+				epoch,
+				avg_loss,
+				is_best=False,  # Already saved above if best
+				best_loss=best_loss,
+			)
+			print(f"Checkpoint saved for epoch {epoch}: {ckpt}")
+
+		return losses
 
 
-if __name__ == '__main__':
-    main()
+def build_pipeline() -> TrainingPipeline:
+	config = TrainingConfig()
+	return TrainingPipeline(config)
+
+
+if __name__ == "__main__":
+	print("Training pipeline module. Import TrainingPipeline and TrainingConfig to use.")

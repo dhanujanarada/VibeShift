@@ -1,17 +1,17 @@
 # DiT Model Configuration
 # Diffusion Transformer for genre transformation with flow matching
+# Optimized for ~30s audio clips with fast testing
 
 dit_model:
-  dit_model:
-  patch_dim: 640       # patch_height * patch_width = 10 * 64
-  embed_dim: 768
-  num_blocks: 12
-  num_heads: 12
+  patch_dim: 512       # patch_height * patch_width = 8 * 64
+  embed_dim: 256       # small but sufficient for testing
+  num_blocks: 4        # shallow for fast training
+  num_heads: 8
   num_genres: 2
-  hidden_dim: 3072
+  hidden_dim: 1024     # 4x embed_dim
   dropout: 0.1
-  patch_height: 10     # 100 n_mels / 10 = 10 patches vertically
-  patch_width: 64      # ~2811 / 64 = 44 patches (will pad to 2816)
+  patch_height: 8      # n_mels/8 = 16 patches vertically
+  patch_width: 64      # 1280/64 = 20 patches horizontally
 
 # DiTBlock specific parameters
 dit_block:
@@ -28,9 +28,10 @@ training:
   weight_decay: 1e-5
   epochs: 100
   patch_height: 8
-  patch_width: 8
+  patch_width: 64      # larger patches for 30s audio
   
-  # Audio processing
+  # Audio processing (30s clips)
   n_mels: 128
   n_fft: 2048
   hop_length: 512
+  target_frames: 1280  # ~27s at 24kHz (close to 30s)

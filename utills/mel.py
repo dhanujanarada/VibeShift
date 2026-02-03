@@ -6,6 +6,10 @@ def save_mel_with_metadata(audio_path, output_path, genre_id, bpm=None):
     """Save mel spectrogram with metadata as a dictionary."""
     waveform, sr = torchaudio.load(audio_path)
     
+    # Convert stereo to mono BEFORE processing
+    if waveform.shape[0] > 1:
+        waveform = torch.mean(waveform, dim=0, keepdim=True)
+    
     # Resample to 24000 Hz for Vocos compatibility
     if sr != 24000:
         resampler = T.Resample(sr, 24000)
@@ -21,7 +25,7 @@ def save_mel_with_metadata(audio_path, output_path, genre_id, bpm=None):
         f_max=8000
     )
     
-    mel_spec = mel_transform(waveform)
+    mel_spec = mel_transform(waveform)  # Now always (1, 100, time)
     
     # Save as dictionary
     data = {
@@ -35,4 +39,3 @@ def save_mel_with_metadata(audio_path, output_path, genre_id, bpm=None):
     
     torch.save(data, output_path)
     print(f"Saved {output_path}: genre={genre_id}, shape={mel_spec.shape}")
-

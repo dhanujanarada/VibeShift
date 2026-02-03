@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from omegaconf import DictConfig, OmegaConf
 from utills.embedding import RoPEEmbedding, GenreEmbedding, TimeEmbedding, MelPatchEmbedding
 from models.film_conditioner import FiLMConditioner
@@ -137,13 +138,23 @@ class DiT(nn.Module):
         Returns:
             (B, C, n_mels, time_steps) transformed mel spectrogram
         """
-        # Store original shape for reconstruction
+        # Store original and padded shapes for reconstruction
         original_shape = None
+        padded_shape = None
         
         if self.use_mel_patches:
             B, C, H, W = x.shape
             original_shape = (B, C, H, W)
-            
+
+            # Pad to multiples of patch size to avoid shape mismatch
+            pad_h = (self.patch_height - (H % self.patch_height)) % self.patch_height
+            pad_w = (self.patch_width - (W % self.patch_width)) % self.patch_width
+            if pad_h > 0 or pad_w > 0:
+                x = F.pad(x, (0, pad_w, 0, pad_h))  # Pad W then H
+
+            # Track padded shape based on actual tensor (post-pad)
+            padded_shape = (x.shape[2], x.shape[3])
+
             # Convert mel to patches
             x = self.patch_embedding(x)  # (B, num_patches, embed_dim)
         else:
@@ -168,8 +179,13 @@ class DiT(nn.Module):
         # Reconstruct mel spectrogram from patches
         if self.use_mel_patches and original_shape is not None:
             B, C, H, W = original_shape
-            num_patches_h = H // self.patch_height
-            num_patches_w = W // self.patch_width
+            if padded_shape is not None:
+                padded_h, padded_w = padded_shape
+            else:
+                padded_h = H + ((self.patch_height - (H % self.patch_height)) % self.patch_height)
+                padded_w = W + ((self.patch_width - (W % self.patch_width)) % self.patch_width)
+            num_patches_h = padded_h // self.patch_height
+            num_patches_w = padded_w // self.patch_width
             
             # Reshape from (B, num_patches, patch_size) to (B, H', W', C, patch_h, patch_w)
             x = x.reshape(B, num_patches_h, num_patches_w, C, self.patch_height, self.patch_width)
@@ -177,7 +193,10 @@ class DiT(nn.Module):
             # Permute to (B, C, H', patch_h, W', patch_w)
             x = x.permute(0, 3, 1, 4, 2, 5).contiguous()
             
-            # Reshape to original mel shape (B, C, H, W)
-            x = x.reshape(B, C, H, W)
+            # Reshape to padded mel shape (B, C, H_padded, W_padded)
+            x = x.reshape(B, C, padded_h, padded_w)
+
+            # Crop back to original size
+            x = x[:, :, :H, :W]
         
         return x

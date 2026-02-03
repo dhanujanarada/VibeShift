@@ -35,7 +35,14 @@ non_rock_genres:
   79: Instrumental
   96: Minimal Electronic
   144: Soundtrack
+  116: Pop
+  120: Progressive
+  31: Classical
+  51: Electronic
+  45 : Drum & Bass
+  83: 'Jazz: Out'
+  18: Blues     
 
 GENRES:
-  rock: 1
-  non_rock: 0
+  Rock: 1
+  Classical: 0
