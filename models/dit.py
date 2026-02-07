@@ -6,9 +6,13 @@ from utills.embedding import RoPEEmbedding, GenreEmbedding, TimeEmbedding
 from models.film_conditioner import FiLMConditioner
 import os
 
-# Load configuration
+# Load configuration with error handling
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'configs', 'dit.yaml')
-dit_config = OmegaConf.load(CONFIG_PATH)
+try:
+    dit_config = OmegaConf.load(CONFIG_PATH)
+except FileNotFoundError:
+    print(f"Warning: Config file not found at {CONFIG_PATH}. Using default config.")
+    dit_config = OmegaConf.create({})
 
 
 class DiTBlock(nn.Module):
@@ -52,9 +56,9 @@ class DiTBlock(nn.Module):
         x = x + self.attn(self.norm1(x), attn_mask)
         
         # FiLM conditioning with pre-embedded time
-        scale, shift = self.film(t_emb, genre_ids)  # Pass embedded time
         x_norm = self.norm2(x)
-        x = x + x_norm * (scale.unsqueeze(1) + 1) + shift.unsqueeze(1)
+        scale, shift = self.film(t_emb, genre_ids)  # Pass embedded time
+        x = x + x_norm * scale.unsqueeze(1) + shift.unsqueeze(1)
         
         # MLP with residual
         x = x + self.mlp(self.norm3(x))

@@ -112,7 +112,7 @@ class RoPEEmbedding(nn.Module):
     def _apply_rope(self, x, cos_emb, sin_emb):
         cos_emb = cos_emb[None, None, :, :]
         sin_emb = sin_emb[None, None, :, :]
-        x1, x2 = x[..., :self.head_dim//2], x[..., self.head_dim//2:]
+        x1, x2 = x.chunk(2, dim=-1)  # Split head_dim evenly
         rotated = torch.cat([-x2, x1], dim=-1)
         return x * cos_emb + rotated * sin_emb
     
@@ -129,6 +129,8 @@ class RoPEEmbedding(nn.Module):
         
         attn = (q @ k.transpose(-2, -1)) * self.scale
         if attn_mask is not None:
+            if attn_mask.dim() == 2:
+                attn_mask = attn_mask.unsqueeze(0).unsqueeze(0)  # (1, 1, L, L)
             attn = attn.masked_fill(attn_mask == 0, float('-inf'))
         
         attn = attn.softmax(dim=-1)

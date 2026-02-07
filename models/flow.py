@@ -60,8 +60,11 @@ class FlowMatching(nn.Module):
         batch_size = x0.size(0)
         device = x0.device
         
-        if isinstance(genre_ids, int):
-            genre_ids = torch.tensor([genre_ids] * batch_size, device=device)
+        if not isinstance(genre_ids, torch.Tensor):
+            if isinstance(genre_ids, int):
+                genre_ids = torch.tensor([genre_ids] * batch_size, device=device, dtype=torch.long)
+            else:
+                genre_ids = torch.tensor(genre_ids, device=device, dtype=torch.long)
         
         dt = 1.0 / num_steps
         xt = x0.clone()
@@ -93,8 +96,11 @@ class FlowMatching(nn.Module):
         batch_size = x0.size(0)
         device = x0.device
 
-        if isinstance(genre_ids, int):
-            genre_ids = torch.tensor([genre_ids] * batch_size, device=device)
+        if not isinstance(genre_ids, torch.Tensor):
+            if isinstance(genre_ids, int):
+                genre_ids = torch.tensor([genre_ids] * batch_size, device=device, dtype=torch.long)
+            else:
+                genre_ids = torch.tensor(genre_ids, device=device, dtype=torch.long)
         
         dt = 1.0 / num_steps
         xt = x0.clone()

@@ -107,9 +107,13 @@ class DACLatentProcessor:
                 output_file = output_path / relative_path.with_suffix('.pt')
                 output_file.parent.mkdir(parents=True, exist_ok=True)
                 
+                # Convert DAC latents from (B, D, T) to (B, T, D) for consistency with DiT expectations
+                z_tensor = torch.from_numpy(latent_data["z"])  # (B, D, T)
+                z_tensor = z_tensor.transpose(1, 2)  # Convert to (B, T, D)
+                
                 torch.save(
                     {
-                        "z": torch.from_numpy(latent_data["z"]),
+                        "z": z_tensor,
                         "codes": torch.from_numpy(latent_data["codes"]),
                         "latents": torch.from_numpy(latent_data["latents"]),
                         "sample_rate": latent_data["sample_rate"],
@@ -143,13 +147,17 @@ class DACLatentProcessor:
         Decode latents back to audio waveform.
         
         Args:
-            z: Quantized latents (B, D, T)
+            z: Quantized latents (B, D, T) or (B, T, D) - will transpose if needed
         
         Returns:
             Audio waveform as numpy array
         """
         with torch.no_grad():
             z = z.to(self.device)
+            # Ensure z is in (B, D, T) format for DAC decoder
+            if z.dim() == 3 and z.shape[2] < z.shape[1]:
+                # Likely (B, T, D) format, transpose to (B, D, T)
+                z = z.transpose(1, 2)
             audio = self.model.decode(z)
         return audio.cpu().numpy()
 
