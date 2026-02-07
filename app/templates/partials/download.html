@@ -6,12 +6,42 @@
     Transformation Complete!
   </p>
 
+  <!-- Audio Player -->
+  <div class="audio-player">
+    <audio controls preload="metadata" id="result-audio">
+      <source src="{{ file_url }}" type="audio/wav">
+      Your browser does not support the audio element.
+    </audio>
+  </div>
+
+  <!-- Download Button -->
   <a
     href="{{ file_url }}"
-    download
+    download="{{ filename }}"
     class="btn btn-success"
   >
     <span>⬇️</span>
     <span>Download Rock Version</span>
   </a>
+
+  <!-- Transform Another Button -->
+  <button
+    onclick="location.reload()"
+    class="btn btn-secondary"
+  >
+    <span>🔄</span>
+    <span>Transform Another</span>
+  </button>
 </div>
+
+<script>
+// Auto-play the audio when loaded
+document.addEventListener('DOMContentLoaded', function() {
+  const audio = document.getElementById('result-audio');
+  if (audio) {
+    audio.volume = 0.7;
+    // Optional: auto-play (some browsers may block this)
+    // audio.play().catch(e => console.log('Auto-play prevented'));
+  }
+});
+</script>

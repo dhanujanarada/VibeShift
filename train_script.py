@@ -8,7 +8,7 @@ from pathlib import Path
 import glob
 from datetime import datetime
 
-from training.dataloader import RandomPairMelDataset
+from training.dataloader import DACDataset
 from torch.utils.data import DataLoader
 from training.training import TrainingPipeline, TrainingConfig
 
@@ -20,8 +20,8 @@ CHECKPOINT_DIR = Path("checkpoints")
 ROOT = Path(r"c:\Users\Dhanuja\Desktop\Vibeshift\VibeShift")
 DATA_DIR = ROOT / "data" / "output"
 
-NON_ROCK_DIR = DATA_DIR / "non_rock_mel"
-ROCK_DIR = DATA_DIR / "rock_mel"
+NON_ROCK_DIR = DATA_DIR / "non_rock_dac"
+ROCK_DIR = DATA_DIR / "rock_dac"
 
 
 
@@ -84,13 +84,14 @@ def setup_data(logger: logging.Logger) -> tuple:
 
 
 
-def validate_dataset(dataset: RandomPairMelDataset, logger: logging.Logger) -> None:
+def validate_dataset(dataset: DACDataset, logger: logging.Logger) -> None:
     """Validate dataset and log sample information."""
     logger.info(f"Dataset created with {len(dataset)} samples")
     
     try:
         x0, x1 = dataset[0]
         logger.info(f"Sample shapes - x0: {x0.shape}, x1: {x1.shape}")
+        logger.info(f"  DAC latent_dim: {x0.shape[-1]}")
         logger.debug(f"  x0 dtype: {x0.dtype}, range: [{x0.min():.4f}, {x0.max():.4f}]")
         logger.debug(f"  x1 dtype: {x1.dtype}, range: [{x1.min():.4f}, {x1.max():.4f}]")
     except Exception as e:
@@ -211,8 +212,8 @@ def main():
         source_files, target_files = setup_data(logger)
         
         # Dataset initialization
-        logger.info("Creating dataset...")
-        dataset = RandomPairMelDataset(source_files, target_files)
+        logger.info("Creating DAC dataset...")
+        dataset = DACDataset(source_files, target_files)
         validate_dataset(dataset, logger)
         
         # Model setup

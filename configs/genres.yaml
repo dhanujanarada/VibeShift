@@ -46,3 +46,4 @@ non_rock_genres:
 GENRES:
   Rock: 1
   Classical: 0
+  Synth : 2

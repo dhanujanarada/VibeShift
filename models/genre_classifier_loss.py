@@ -12,7 +12,7 @@ class GenreClassifierLoss(nn.Module):
     
     def __init__(
         self,
-        num_genres: int = 2,
+        num_genres: int = 3,  # 0=classical, 1=rock, 2=unknown
         mel_height: int = 100,
         mel_width: int = 512,
         embedding_dim: int = 128,
@@ -117,7 +117,7 @@ class GenreClassifierLoss(nn.Module):
         Args:
             generated: (B, C, H, W) generated mel spectrogram
             target: (B, C, H, W) target genre mel spectrogram
-            target_genre_id: (B,) target genre indices (1 for rock, 0 for non-rock)
+            target_genre_id: (B,) target genre indices (0=classical, 1=rock, 2=unknown)
         
         Returns:
             loss: scalar contrastive loss
