@@ -11,14 +11,15 @@ class FlowMatching(nn.Module):
         self.dit = dit_model
 
     
-    def compute_loss(self, x0, x1, genre_ids): 
+    def compute_loss(self, x0, x1, genre_ids, mask=None): 
         """
-        Compute flow matching training loss.
+        Compute flow matching training loss with optional masking for variable lengths.
         
         Args:
             x0: (B, T, latent_dim) source DAC embeddings
             x1: (B, T, latent_dim) target DAC embeddings
             genre_ids: (B,) target genre indices (0=classical, 1=rock, 2=unknown)
+            mask: (B, T) optional mask (1.0 for valid, 0.0 for padding)
         
         Returns:
             loss: scalar MSE loss between predicted and true velocity
@@ -40,9 +41,20 @@ class FlowMatching(nn.Module):
         # Predicted velocity from DiT
         v_pred = self.dit(xt, t, genre_ids)
         
-        # MSE loss
-        loss = F.mse_loss(v_pred, v_true)
-        return loss
+        # Compute loss (element-wise MSE)
+        loss_per_element = F.mse_loss(v_pred, v_true, reduction='none')  # (B, T, D)
+        
+        if mask is not None:
+            # Apply mask: (B, T) -> (B, T, 1) for broadcasting
+            mask_expanded = mask.unsqueeze(-1)  # (B, T, 1)
+            num_valid = mask_expanded.sum()
+            if num_valid > 0:
+                masked_loss = (loss_per_element * mask_expanded).sum() / num_valid
+                return masked_loss
+            return torch.tensor(0.0, device=loss_per_element.device)
+        else:
+            # No mask: standard MSE
+            return loss_per_element.mean()
     
     def sample_euler(self, x0, genre_ids, num_steps=50):
         """
@@ -121,6 +133,14 @@ class FlowMatching(nn.Module):
             xt = xt + (v1 + v2) * (dt / 2)
         
         return xt
+
+    def sample(self, x0, genre_ids, mask=None, num_steps=50, method="euler"):
+        """Convenience wrapper for sampling."""
+        if method == "euler":
+            return self.sample_euler(x0, genre_ids, num_steps=num_steps)
+        if method == "heun":
+            return self.sample_heun(x0, genre_ids, num_steps=num_steps)
+        raise ValueError(f"Unknown sampling method: {method}")
     
     def forward(self, x0, x1, genre_ids):
         return self.compute_loss(x0, x1, genre_ids)

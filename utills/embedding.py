@@ -1,6 +1,7 @@
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class TimeEmbedding(nn.Module):
     
@@ -10,9 +11,6 @@ class TimeEmbedding(nn.Module):
         self.max_period = max_period
     
     def forward(self, t):
-        
-        # Scale to reasonable range
-        t = t * 1000  # Scale up for sinusoidal
         
         half_dim = self.dim // 2
         freqs = torch.exp(
@@ -127,16 +125,31 @@ class RoPEEmbedding(nn.Module):
         q = self._apply_rope(q, cos_emb, sin_emb)
         k = self._apply_rope(k, cos_emb, sin_emb)
         
-        attn = (q @ k.transpose(-2, -1)) * self.scale
+        # Use PyTorch's optimized scaled_dot_product_attention
+        # This automatically uses Flash Attention when available, greatly reducing memory
         if attn_mask is not None:
+            # Convert mask to bool type for scaled_dot_product_attention
+            # True = attend, False = ignore (opposite of masked_fill convention)
             if attn_mask.dim() == 2:
-                attn_mask = attn_mask.unsqueeze(0).unsqueeze(0)  # (1, 1, L, L)
-            attn = attn.masked_fill(attn_mask == 0, float('-inf'))
+                # Padding mask (B, L) -> expand to (B, 1, 1, L)
+                attn_mask = attn_mask.unsqueeze(1).unsqueeze(2)
+            elif attn_mask.dim() == 3:
+                # Full mask (B, L, L) -> expand to (B, 1, L, L)
+                attn_mask = attn_mask.unsqueeze(1)
+            # Invert mask: 0 -> False (ignore), non-zero -> True (attend)
+            attn_mask = attn_mask.bool()
         
-        attn = attn.softmax(dim=-1)
-        attn = self.dropout(attn)
+        # Use Flash Attention for memory efficiency
+        # Shape: q, k, v are (B, num_heads, L, head_dim)
+        out = F.scaled_dot_product_attention(
+            q, k, v,
+            attn_mask=attn_mask,
+            dropout_p=self.dropout.p if self.training else 0.0,
+            scale=self.scale,
+        )
         
-        out = (attn @ v).transpose(1, 2).reshape(B, L, D)
+        # Reshape output: (B, num_heads, L, head_dim) -> (B, L, D)
+        out = out.transpose(1, 2).reshape(B, L, D)
         out = self.proj(out)
         return out
 

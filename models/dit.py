@@ -12,7 +12,16 @@ try:
     dit_config = OmegaConf.load(CONFIG_PATH)
 except FileNotFoundError:
     print(f"Warning: Config file not found at {CONFIG_PATH}. Using default config.")
-    dit_config = OmegaConf.create({})
+    dit_config = OmegaConf.create({
+        "dit_model": {
+            "embed_dim": 512,
+            "num_blocks": 8,
+            "num_heads": 8,
+            "num_genres": 3,
+            "hidden_dim": 2048,
+            "dropout": 0.1,
+        }
+    })
 
 
 class DiTBlock(nn.Module):
@@ -55,11 +64,11 @@ class DiTBlock(nn.Module):
         # Self-attention with residual
         x = x + self.attn(self.norm1(x), attn_mask)
         
-        # FiLM conditioning with pre-embedded time
         x_norm = self.norm2(x)
-        scale, shift = self.film(t_emb, genre_ids)  # Pass embedded time
-        x = x + x_norm * scale.unsqueeze(1) + shift.unsqueeze(1)
-        
+        scale, shift = self.film(t_emb, genre_ids)
+        x_modulated = x_norm * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
+        x = x + x_modulated
+
         # MLP with residual
         x = x + self.mlp(self.norm3(x))
         
@@ -69,12 +78,12 @@ class DiTBlock(nn.Module):
 class DiT(nn.Module):
     """
     Diffusion Transformer for genre transformation with flow matching.
-    Designed for DAC embeddings: (B, T, latent_dim) where latent_dim=768
+    Designed for DAC embeddings: (B, T, latent_dim) where latent_dim matches input_dim
     """
     
     def __init__(
         self,
-        input_dim=768,      # DAC latent dimension
+        input_dim=1024,      # DAC latent dimension (override if your latents differ)
         embed_dim=None,
         num_blocks=None,
         num_heads=None,
@@ -90,7 +99,7 @@ class DiT(nn.Module):
             config = dit_config.dit_model
         
         # Use provided parameters or fall back to config
-        self.input_dim = input_dim  # DAC latent dim (768)
+        self.input_dim = input_dim  # DAC latent dim
         self.embed_dim = embed_dim or config.embed_dim
         self.num_blocks = num_blocks or config.num_blocks
         self.num_heads = num_heads or config.num_heads
@@ -119,7 +128,7 @@ class DiT(nn.Module):
     def forward(self, x, t, genre_ids):
         """
         Args:
-            x: (B, T, latent_dim) DAC embeddings, latent_dim=768
+            x: (B, T, latent_dim) DAC embeddings
             t: (B,) timesteps in [0, 1]
             genre_ids: (B,) genre indices for target genre (0=classical, 1=rock, 2=unknown)
         

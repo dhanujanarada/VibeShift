@@ -1,149 +1,332 @@
+"""
+Dataloader classes for VibeShift training (FIXED VERSION).
+Implements lazy loading, dynamic padding, and proper device handling.
+"""
+
 import torch
-from torch.utils.data import Dataset
+import numpy as np
+import warnings
+from pathlib import Path
+from typing import List, Tuple, Optional, Dict, Callable
+from torch.utils.data import Dataset, DataLoader
 
 
-def collate_variable_length_dac(batch):
+def default_collate_with_dynamic_padding(batch: List[Tuple]) -> Tuple:
     """
-    Collate function for batches with variable-length DAC embeddings.
-    Pads all sequences to the maximum length in the batch.
+    Custom collate function with dynamic padding and attention mask generation.
+    Pads sequences to the maximum length in the current batch, not the dataset max.
     
     Args:
-        batch: List of (x0, x1) tuples where x0, x1 are (T, latent_dim) tensors
+        batch: List of (x0, x1) or (x0, x1, genre_id) tuples
     
     Returns:
-        Tuple of (x0_batch, x1_batch, masks) where:
-        - x0_batch: (B, max_T, latent_dim) padded source embeddings
-        - x1_batch: (B, max_T, latent_dim) padded target embeddings
-        - masks: (B, max_T) boolean mask (True where data exists, False where padded)
+        Padded batch tensors with attention mask:
+        - For genre-aware: (x0_padded, x1_padded, genre_ids, mask)
+        - For standard: (x0_padded, x1_padded, mask)
     """
-    x0_list, x1_list = zip(*batch)
-    
-    # Find max time length in this batch
-    max_time = max(max(x0.shape[0], x1.shape[0]) for x0, x1 in zip(x0_list, x1_list))
-    latent_dim = x0_list[0].shape[-1]
-    
-    x0_batch = []
-    x1_batch = []
-    masks = []
-    
-    for x0, x1 in zip(x0_list, x1_list):
-        # Store original time before padding
-        original_time = x0.shape[0]
+    if isinstance(batch[0], tuple) and len(batch[0]) == 3:
+        # Genre-aware dataset
+        x0_list, x1_list, genre_ids = zip(*batch)
+        x0_list = list(x0_list)
+        x1_list = list(x1_list)
+        genre_ids = torch.tensor(genre_ids, dtype=torch.long)
         
-        # Pad x0 to max_time: (T, D) -> (max_T, D)
-        if x0.shape[0] < max_time:
-            pad_amount = max_time - x0.shape[0]
-            x0 = torch.nn.functional.pad(x0, (0, 0, 0, pad_amount), mode='constant', value=0)
+        # Compute original lengths BEFORE padding
+        x0_lengths = [x.size(0) for x in x0_list]
+        x1_lengths = [x.size(0) for x in x1_list]
+        max_len = max(max(x0_lengths), max(x1_lengths))
         
-        # Pad x1 to max_time
-        if x1.shape[0] < max_time:
-            pad_amount = max_time - x1.shape[0]
-            x1 = torch.nn.functional.pad(x1, (0, 0, 0, pad_amount), mode='constant', value=0)
+        # Pad to batch max
+        x0_padded = torch.stack([
+            torch.nn.functional.pad(x, (0, 0, 0, max_len - x.size(0))) 
+            for x in x0_list
+        ])
+        x1_padded = torch.stack([
+            torch.nn.functional.pad(x, (0, 0, 0, max_len - x.size(0))) 
+            for x in x1_list
+        ])
         
-        # Create mask (True for original data, False for padding)
-        mask = torch.ones(max_time, dtype=torch.bool)
-        mask[original_time:] = False
+        # FIXED: Create attention masks (1.0 for valid, 0.0 for padding)
+        mask = torch.zeros(len(batch), max_len)
+        for i, (len0, len1) in enumerate(zip(x0_lengths, x1_lengths)):
+            actual_len = max(len0, len1)  # Use longer of the two
+            mask[i, :actual_len] = 1.0
         
-        x0_batch.append(x0)
-        x1_batch.append(x1)
-        masks.append(mask)
+        return x0_padded, x1_padded, genre_ids, mask
+    else:
+        # Standard dataset
+        x0_list, x1_list = zip(*batch)
+        x0_list = list(x0_list)
+        x1_list = list(x1_list)
+        
+        # Compute original lengths BEFORE padding
+        x0_lengths = [x.size(0) for x in x0_list]
+        x1_lengths = [x.size(0) for x in x1_list]
+        max_len = max(max(x0_lengths), max(x1_lengths))
+        
+        # Pad to batch max
+        x0_padded = torch.stack([
+            torch.nn.functional.pad(x, (0, 0, 0, max_len - x.size(0))) 
+            for x in x0_list
+        ])
+        x1_padded = torch.stack([
+            torch.nn.functional.pad(x, (0, 0, 0, max_len - x.size(0))) 
+            for x in x1_list
+        ])
+        
+        # FIXED: Create attention masks for standard dataset
+        mask = torch.zeros(len(batch), max_len)
+        for i, (len0, len1) in enumerate(zip(x0_lengths, x1_lengths)):
+            actual_len = max(len0, len1)
+            mask[i, :actual_len] = 1.0
+        
+        return x0_padded, x1_padded, mask
+
+
+class LatentPairDataset(Dataset):
+   
     
-    # Stack into batch (B, max_T, latent_dim)
-    x0_batch = torch.stack(x0_batch, dim=0)
-    x1_batch = torch.stack(x1_batch, dim=0)
-    masks = torch.stack(masks, dim=0)  # (B, max_T)
-    
-    return x0_batch, x1_batch, masks
-
-
-class DACDataset(Dataset):
-    """Load paired DAC embeddings (deterministic 1-to-1 pairing)"""
-    def __init__(self, source_files, target_files):
-        self.source_files = source_files
-        self.target_files = target_files
-
-    def __len__(self):
-        return len(self.source_files)
-
-    def _extract_embeddings(self, obj):
-        """Extract embeddings from saved DAC data"""
-        if isinstance(obj, dict):
-            # DAC saves with 'embeddings' key
-            if 'embeddings' in obj:
-                return obj['embeddings']
-            # Fallback keys
-            for k in ("embeddings", "latent", "z", "x"):
-                if k in obj:
-                    return obj[k]
-            raise KeyError(f"Embeddings not found in dict keys: {list(obj.keys())}")
-        return obj
-
-    def _load_embeddings(self, path):
-        """Load DAC embeddings and ensure 2D: (T, latent_dim)"""
-        data = torch.load(path)
-        emb = self._extract_embeddings(data)
-
-        # Ensure 2D: (T, latent_dim)
-        while emb.dim() > 2:
-            emb = emb.squeeze(0)
-        
-        if emb.dim() == 1:
-            emb = emb.unsqueeze(0)  # (1, latent_dim) - single frame
-
-        return emb
-
-    def __getitem__(self, idx):
-        x0 = self._load_embeddings(self.source_files[idx])
-        x1 = self._load_embeddings(self.target_files[idx])
-        return x0, x1
-
-
-class PairedDACDataset(Dataset):
-    """Load DAC embeddings with deterministic paired pairing for overfitting tests"""
-    def __init__(self, source_files, target_files, repeat=1):
+    def __init__(
+        self,
+        source_dir: str,
+        target_dir: str,
+        max_samples: Optional[int] = None,
+    ):
         """
+        Initialize the latent pair dataset with LAZY LOADING.
+        
         Args:
-            source_files: List of source DAC embedding file paths
-            target_files: List of target DAC embedding file paths (must align with source_files by index)
-            repeat: Number of times to repeat the dataset (for overfitting on small datasets)
+            source_dir: Directory containing source latent embeddings (.pt files)
+            target_dir: Directory containing target latent embeddings (.pt files)
+            max_samples: Maximum number of samples to load (None = all)
         """
-        if len(source_files) != len(target_files):
-            raise ValueError(f"Source and target file counts must match: {len(source_files)} != {len(target_files)}")
+        self.source_dir = Path(source_dir)
+        self.target_dir = Path(target_dir)
         
-        self.source_files = source_files
-        self.target_files = target_files
-        self.repeat = repeat
-
-    def __len__(self):
-        return len(self.source_files) * self.repeat
-
-    def _extract_embeddings(self, obj):
-        """Extract embeddings from saved DAC data"""
-        if isinstance(obj, dict):
-            if 'embeddings' in obj:
-                return obj['embeddings']
-            for k in ("embeddings", "latent", "z", "x"):
-                if k in obj:
-                    return obj[k]
-            raise KeyError(f"Embeddings not found in dict keys: {list(obj.keys())}")
-        return obj
-
-    def _load_embeddings(self, path):
-        """Load DAC embeddings and ensure 2D: (T, latent_dim)"""
-        data = torch.load(path)
-        emb = self._extract_embeddings(data)
-
-        while emb.dim() > 2:
-            emb = emb.squeeze(0)
+        # Find all source files (lazy loading - just store paths)
+        self.source_files = sorted(self.source_dir.glob("*.pt"))
+        self.target_files = sorted(self.target_dir.glob("*.pt"))
         
-        if emb.dim() == 1:
-            emb = emb.unsqueeze(0)
+        if not self.source_files:
+            raise FileNotFoundError(f"No .pt files found in {source_dir}")
+        if not self.target_files:
+            raise FileNotFoundError(f"No .pt files found in {target_dir}")
+        
+        if len(self.source_files) != len(self.target_files):
+            raise ValueError(
+                f"Mismatch: {len(self.source_files)} source files, "
+                f"{len(self.target_files)} target files"
+            )
+        
+        # Limit to max_samples if specified
+        if max_samples is not None:
+            self.source_files = self.source_files[:max_samples]
+            self.target_files = self.target_files[:max_samples]
+        
+        # Cache for max sequence length (computed lazily)
+        self._max_length = None
+        self._embedding_dim = None
+        
+        print(f"Dataset initialized with {len(self)} samples (lazy loading)")
+        print(f"  Source dir: {source_dir}")
+        print(f"  Target dir: {target_dir}")
+    
+    def _compute_max_length(self) -> int:
+        """Compute maximum sequence length (cached on first call)."""
+        if self._max_length is not None:
+            return self._max_length
+        
+        print("Computing dataset max sequence length...")
+        max_len = 0
+        
+        # FIXED: Provide both iterables to zip()
+        sample_size = min(10, len(self.source_files))
+        for src_file, tgt_file in zip(self.source_files[:sample_size], 
+                                       self.target_files[:sample_size]):
+            try:
+                src_data = torch.load(src_file, map_location="cpu")
+                src_emb = self._extract_embeddings(src_data)
+                if src_emb.dim() == 3 and src_emb.size(0) == 1:
+                    src_emb = src_emb.squeeze(0)
+                max_len = max(max_len, src_emb.size(0))
+                
+                tgt_data = torch.load(tgt_file, map_location="cpu")
+                tgt_emb = self._extract_embeddings(tgt_data)
+                if tgt_emb.dim() == 3 and tgt_emb.size(0) == 1:
+                    tgt_emb = tgt_emb.squeeze(0)
+                max_len = max(max_len, tgt_emb.size(0))
+            except Exception as e:
+                warnings.warn(f"Could not compute length for {src_file}: {e}")
+        
+        self._max_length = max_len
+        return max_len
+    
+    @staticmethod
+    def _extract_embeddings(data) -> torch.Tensor:
+        """Extract embeddings from various data formats."""
+        if isinstance(data, dict):
+            for key in ["z", "embeddings", "latents"]:
+                if key in data:
+                    return data[key]
+            for v in data.values():
+                if isinstance(v, torch.Tensor):
+                    return v
+            raise ValueError(f"No tensor found in dict with keys: {data.keys()}")
+        elif isinstance(data, torch.Tensor):
+            return data
+        else:
+            raise TypeError(f"Unsupported data type: {type(data)}")
+    
+    def __len__(self) -> int:
+        """Return number of samples."""
+        return len(self.source_files)
+    
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Get a sample pair (LAZY LOADING).
+        Tensors are kept on CPU; DataLoader moves them to device.
+        
+        Returns:
+            (x0, x1): Source and target embeddings on CPU
+        """
+        src_file = self.source_files[idx]
+        tgt_file = self.target_files[idx]
+        
+        try:
+            # Load from disk
+            src_data = torch.load(src_file, map_location="cpu")
+            x0 = self._extract_embeddings(src_data)
+            
+            tgt_data = torch.load(tgt_file, map_location="cpu")
+            x1 = self._extract_embeddings(tgt_data)
+            
+            # Remove batch dimension if present
+            if x0.dim() == 3 and x0.size(0) == 1:
+                x0 = x0.squeeze(0)
+            if x1.dim() == 3 and x1.size(0) == 1:
+                x1 = x1.squeeze(0)
+            
+            # FIXED: Only warn about extremely long sequences (avoid calling _compute_max_length every time)
+            if x0.size(0) > 10000 or x1.size(0) > 10000:
+                warnings.warn(
+                    f"Sample {idx}: Very long sequence detected. "
+                    f"x0: {x0.size(0)}, x1: {x1.size(0)}"
+                )
+            
+            return x0, x1
+        except Exception as e:
+            raise RuntimeError(f"Error loading sample {idx} from {src_file}: {e}")
+    
+    def get_info(self) -> Dict:
+        """Return dataset information."""
+        # Compute embedding dim from first sample
+        if self._embedding_dim is None:
+            x0, _ = self[0]
+            self._embedding_dim = x0.size(-1)
+        
+        return {
+            "num_samples": len(self),
+            "max_sequence_length": self._compute_max_length(),
+            "embedding_dim": self._embedding_dim,
+            "source_dir": str(self.source_dir),
+            "target_dir": str(self.target_dir),
+            "memory_efficient": "lazy loading",
+        }
 
-        return emb
 
-    def __getitem__(self, idx):
-        # Map index to actual file pair (handling repeat)
-        actual_idx = idx % len(self.source_files)
-        x0 = self._load_embeddings(self.source_files[actual_idx])
-        x1 = self._load_embeddings(self.target_files[actual_idx])
-        return x0, x1
+class GenreAwareLatentDataset(LatentPairDataset):
+    """
+    Extended lazy-loading dataset with genre labels.
+    Useful for training genre-conditional models.
+    """
+    
+    def __init__(
+        self,
+        source_dir: str,
+        target_dir: str,
+        genre_labels: Optional[Dict[int, int]] = None,
+        max_samples: Optional[int] = None,
+    ):
+        """
+        Initialize genre-aware dataset with lazy loading.
+        
+        Args:
+            source_dir: Directory containing source latent embeddings
+            target_dir: Directory containing target latent embeddings
+            genre_labels: Mapping of sample index to genre id
+            max_samples: Maximum number of samples to load
+        """
+        super().__init__(
+            source_dir=source_dir,
+            target_dir=target_dir,
+            max_samples=max_samples,
+        )
+        
+        # Set default genre labels if not provided
+        if genre_labels is None:
+            genre_labels = {i: 0 for i in range(len(self))}
+        
+        self.genre_labels = genre_labels
+    
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, int]:
+        """
+        Get a sample with genre label (lazy loading).
+        
+        Returns:
+            (x0, x1, genre_id): Source and target embeddings with genre
+        """
+        x0, x1 = super().__getitem__(idx)
+        genre_id = self.genre_labels.get(idx, 0)
+        return x0, x1, genre_id
+
+
+def create_dataloader(
+    source_dir: str,
+    target_dir: str,
+    batch_size: int = 8,
+    shuffle: bool = True,
+    num_workers: int = 0,
+    max_samples: Optional[int] = None,
+    drop_last: bool = False,
+    pin_memory: bool = True,
+) -> Tuple[DataLoader, LatentPairDataset]:
+    """
+    Create a dataloader with proper device handling and dynamic padding.
+    
+    FIXED: Keeps tensors on CPU, uses pin_memory for efficient GPU transfer.
+    
+    Args:
+        source_dir: Directory containing source latent embeddings
+        target_dir: Directory containing target latent embeddings
+        batch_size: Batch size for dataloader
+        shuffle: Whether to shuffle the dataset
+        num_workers: Number of worker processes (0 for single-threaded)
+        max_samples: Maximum number of samples to load
+        drop_last: Drop last incomplete batch
+        pin_memory: Pin memory for faster GPU transfer
+    
+    Returns:
+        (dataloader, dataset): PyTorch DataLoader and underlying Dataset
+    """
+    # Warn if using multiprocessing with CUDA
+    if num_workers > 0:
+        print(f"⚠️ Warning: Using {num_workers} workers. "
+              "Ensure CUDA is not initialized in worker processes.")
+    
+    dataset = LatentPairDataset(
+        source_dir=source_dir,
+        target_dir=target_dir,
+        max_samples=max_samples,
+    )
+    
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        drop_last=drop_last,
+        pin_memory=pin_memory,
+        collate_fn=default_collate_with_dynamic_padding,
+    )
+    
+    return dataloader, dataset
