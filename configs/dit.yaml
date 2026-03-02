@@ -1,0 +1,31 @@
+# DiT Model Configuration
+# Diffusion Transformer for genre transformation with flow matching
+# Configured for DAC embeddings (768-dim latent space)
+
+dit_model:
+  input_dim: 768       # DAC latent dimension
+  embed_dim: 256       # transformer embedding dimension
+  num_blocks: 4        # number of transformer blocks
+  num_heads: 8
+  num_genres: 3        # 0=classical, 1=rock, 2=unknown
+  hidden_dim: 1024     # 4x embed_dim
+  dropout: 0.1
+
+# DiTBlock specific parameters
+dit_block:
+  # Inherited from model config above
+  # dim: embed_dim
+  # num_heads: num_heads
+  # num_genres: num_genres
+  # hidden_dim: hidden_dim
+  # dropout: dropout
+
+training:
+  batch_size: 8
+  learning_rate: 1e-4
+  weight_decay: 1e-5
+  epochs: 100
+  
+  # DAC audio processing
+  sample_rate: 24000   # DAC native sample rate
+  latent_dim: 768      # DAC latent dimension

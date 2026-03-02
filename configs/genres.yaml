@@ -1,0 +1,49 @@
+# Rock Genre Mappings for FMA Dataset
+# Genre ID -> Genre Name
+
+rock_genres:
+  130: "Rock"
+  77: "Indie-Rock"
+  88: "Krautrock"
+  92: "Loud-Rock"
+  107: "Noise-Rock"
+  117: "Post-Punk"
+  118: "Post-Rock"
+  119: "Power-Pop"
+  120: "Progressive"
+  122: "Psych-Rock"
+  123: "Punk"
+  131: "Rock Opera"
+  132: "Rockabilly"
+  135: "Shoegaze"
+  146: "Space-Rock"
+  151: "Surf"
+  157: "Thrash"
+
+# Optional: Group by subgenre categories
+genre_categories:
+  classic_rock: [130, 132]  # Rock, Rockabilly
+  punk_variants: [123, 117]  # Punk, Post-Punk
+  experimental: [88, 107, 118, 122, 146]  # Krautrock, Noise-Rock, Post-Rock, Psych-Rock, Space-Rock
+  indie_alternative: [77, 119, 135]  # Indie-Rock, Power-Pop, Shoegaze
+  heavy: [92, 120, 157]  # Loud-Rock, Progressive, Thrash
+  niche: [131, 151]  # Rock Opera, Surf
+
+
+non_rock_genres:
+  82: Jazz
+  79: Instrumental
+  96: Minimal Electronic
+  144: Soundtrack
+  116: Pop
+  120: Progressive
+  31: Classical
+  51: Electronic
+  45 : Drum & Bass
+  83: 'Jazz: Out'
+  18: Blues     
+
+GENRES:
+  Rock: 1
+  Classical: 0
+  Synth : 2

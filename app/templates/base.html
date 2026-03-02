@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibeShift - Genre Transfer</title>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+</head>
+
+<body>
+  <!-- Three.js 3D Canvas -->
+  <canvas id="three-canvas"></canvas>
+
+  <!-- Floating music notes -->
+  <div class="music-note">🎵</div>
+  <div class="music-note">🎶</div>
+  <div class="music-note">🎵</div>
+  <div class="music-note">🎶</div>
+
+  <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; position: relative; z-index: 1;">
+    <div style="width: 100%; max-width: 600px;">
+      {% block content %}{% endblock %}
+      <script>
+        // Hide upload form when download or error appears
+        function hideUploadForm() {
+          const form = document.querySelector('.upload-form');
+          if (form) form.style.display = 'none';
+        }
+        function showUploadForm() {
+          const form = document.querySelector('.upload-form');
+          if (form) form.style.display = 'flex';
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+          if (document.querySelector('.result-container') || document.querySelector('.error-container')) {
+            hideUploadForm();
+          }
+        });
+        // Listen for HTMX swaps to hide or show upload form appropriately
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+          // If result container exists now, hide the form
+          if (document.querySelector('.result-container') || document.querySelector('.error-container')) {
+            hideUploadForm();
+          } else {
+            showUploadForm();
+          }
+        });
+        // Show error if HTMX request fails at network level
+        document.body.addEventListener('htmx:responseError', function(evt) {
+          document.getElementById('result').innerHTML = '<div class="error-container" style="backdrop-filter:blur(16px);background:rgba(124,58,237,0.08);border-radius:24px;padding:2rem 1.5rem;max-width:420px;width:100%;display:flex;flex-direction:column;align-items:center;gap:1rem;"><p style="font-size:1.05rem;color:var(--danger-red);text-align:center;margin:0;">Server error ('+evt.detail.xhr.status+'). Please try again.</p><button onclick="location.reload()" class="btn btn-secondary" style="width:100%;padding:0.75rem;border-radius:12px;">🔄 Try Again</button></div>';
+          hideUploadForm();
+        });
+        document.body.addEventListener('htmx:sendError', function(evt) {
+          document.getElementById('result').innerHTML = '<div class="error-container" style="backdrop-filter:blur(16px);background:rgba(124,58,237,0.08);border-radius:24px;padding:2rem 1.5rem;max-width:420px;width:100%;display:flex;flex-direction:column;align-items:center;gap:1rem;"><p style="font-size:1.05rem;color:var(--danger-red);text-align:center;margin:0;">Network error. Please check your connection and try again.</p><button onclick="location.reload()" class="btn btn-secondary" style="width:100%;padding:0.75rem;border-radius:12px;">🔄 Try Again</button></div>';
+          hideUploadForm();
+        });
+      </script>
+    </div>
+  </div>
+
+  <script>
+    // Three.js 3D Scene Setup
+    const canvas = document.getElementById('three-canvas');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+    
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    camera.position.z = 30;
+
+    // Function to create a 3D music note
+    function createMusicNote() {
+      const noteGroup = new THREE.Group();
+      
+      const material = new THREE.MeshStandardMaterial({
+        color: 0xa855f7,
+        emissive: 0x8b5cf6,
+        emissiveIntensity: 0.5,
+        metalness: 0.8,
+        roughness: 0.2,
+      });
+      
+      // Note head (sphere)
+      const headGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+      const head = new THREE.Mesh(headGeometry, material);
+      head.position.y = 0;
+      noteGroup.add(head);
+      
+      // Note stem (cylinder)
+      const stemGeometry = new THREE.CylinderGeometry(0.08, 0.08, 2, 16);
+      const stem = new THREE.Mesh(stemGeometry, material);
+      stem.position.y = 1;
+      stem.position.x = 0.4;
+      noteGroup.add(stem);
+      
+      // Note flag (cone/curved shape)
+      const flagGeometry = new THREE.ConeGeometry(0.4, 1, 8);
+      const flag = new THREE.Mesh(flagGeometry, material);
+      flag.position.y = 2;
+      flag.position.x = 0.4;
+      flag.rotation.z = Math.PI / 4;
+      noteGroup.add(flag);
+      
+      return noteGroup;
+    }
+
+    // Function to create treble clef-like shape
+    function createTrebleClef() {
+      const clefGroup = new THREE.Group();
+      
+      const material = new THREE.MeshStandardMaterial({
+        color: 0xc084fc,
+        emissive: 0xa855f7,
+        emissiveIntensity: 0.5,
+        metalness: 0.8,
+        roughness: 0.2,
+      });
+      
+      // Create curved shape using torus
+      const curve1 = new THREE.Mesh(
+        new THREE.TorusGeometry(0.8, 0.15, 16, 32, Math.PI * 1.5),
+        material
+      );
+      curve1.rotation.z = Math.PI / 4;
+      clefGroup.add(curve1);
+      
+      const curve2 = new THREE.Mesh(
+        new THREE.TorusGeometry(0.5, 0.12, 16, 32, Math.PI),
+        material
+      );
+      curve2.position.y = -0.5;
+      curve2.rotation.z = -Math.PI / 6;
+      clefGroup.add(curve2);
+      
+      const stem = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.1, 0.1, 2, 16),
+        material
+      );
+      stem.position.y = 0.5;
+      clefGroup.add(stem);
+      
+      return clefGroup;
+    }
+
+    const meshes = [];
+    const numNotes = 30;
+
+    for (let i = 0; i < numNotes; i++) {
+      let note;
+      // Mix of music notes and treble clefs
+      if (i % 4 === 0) {
+        note = createTrebleClef();
+      } else {
+        note = createMusicNote();
+      }
+      
+      // Spread across entire visible space
+      note.position.x = (Math.random() - 0.5) * 100;
+      note.position.y = (Math.random() - 0.5) * 80;
+      note.position.z = (Math.random() - 0.5) * 80 - 20;
+      
+      // Random rotation
+      note.rotation.x = Math.random() * Math.PI * 2;
+      note.rotation.y = Math.random() * Math.PI * 2;
+      note.rotation.z = Math.random() * Math.PI * 2;
+      
+      // Slower, smoother movement
+      note.velocity = {
+        x: (Math.random() - 0.5) * 0.02,
+        y: (Math.random() - 0.5) * 0.02,
+        z: (Math.random() - 0.5) * 0.015
+      };
+      
+      note.rotationSpeed = {
+        x: (Math.random() - 0.5) * 0.008,
+        y: (Math.random() - 0.5) * 0.008,
+        z: (Math.random() - 0.5) * 0.008
+      };
+      
+      // Varied scales for depth
+      const scale = 0.5 + Math.random() * 1.5;
+      note.scale.set(scale, scale, scale);
+      
+      // Store original position for boundary checking
+      note.userData.originalPos = {
+        x: note.position.x,
+        y: note.position.y,
+        z: note.position.z
+      };
+      
+      meshes.push(note);
+      scene.add(note);
+    }
+
+    // Add lights
+    const ambientLight = new THREE.AmbientLight(0x8b5cf6, 0.5);
+    scene.add(ambientLight);
+
+    const pointLight1 = new THREE.PointLight(0xa855f7, 2, 100);
+    pointLight1.position.set(10, 10, 10);
+    scene.add(pointLight1);
+
+    const pointLight2 = new THREE.PointLight(0xc084fc, 2, 100);
+    pointLight2.position.set(-10, -10, 10);
+    scene.add(pointLight2);
+
+    // Create particle system
+    const particleGeometry = new THREE.BufferGeometry();
+    const particleCount = 2000;
+    const positions = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount * 3; i++) {
+      positions[i] = (Math.random() - 0.5) * 150;
+    }
+
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const particleMaterial = new THREE.PointsMaterial({
+      color: 0xa855f7,
+      size: 0.1,
+      transparent: true,
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending
+    });
+
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    scene.add(particles);
+
+    // Animation loop
+    let time = 0;
+    function animate() {
+      requestAnimationFrame(animate);
+      time += 0.005;
+
+      // Animate music notes with smooth movement
+      meshes.forEach((note, index) => {
+        // Smooth, continuous rotation
+        note.rotation.x += note.rotationSpeed.x;
+        note.rotation.y += note.rotationSpeed.y;
+        note.rotation.z += note.rotationSpeed.z;
+        
+        // Gentle linear movement
+        note.position.x += note.velocity.x;
+        note.position.y += note.velocity.y;
+        note.position.z += note.velocity.z;
+        
+        // Subtle sine wave motion for organic feel
+        note.position.y += Math.sin(time * 2 + index) * 0.015;
+        note.position.x += Math.cos(time * 1.5 + index) * 0.01;
+        
+        // Smooth boundary wrapping - larger boundaries
+        const boundaryX = 60;
+        const boundaryY = 50;
+        const boundaryZ = { min: -60, max: 30 };
+        
+        if (Math.abs(note.position.x) > boundaryX) {
+          note.position.x = -Math.sign(note.position.x) * boundaryX;
+        }
+        if (Math.abs(note.position.y) > boundaryY) {
+          note.position.y = -Math.sign(note.position.y) * boundaryY;
+        }
+        if (note.position.z > boundaryZ.max) {
+          note.position.z = boundaryZ.min;
+        } else if (note.position.z < boundaryZ.min) {
+          note.position.z = boundaryZ.max;
+        }
+        
+        // Gentle pulse effect
+        const basePulse = 1 + Math.sin(time * 4 + index * 0.5) * 0.08;
+        const originalScale = 0.5 + (index % 5) * 0.3;
+        note.scale.set(basePulse * originalScale, basePulse * originalScale, basePulse * originalScale);
+        
+        // Smooth glow effect
+        note.children.forEach(child => {
+          if (child.material) {
+            const glowIntensity = 0.4 + Math.sin(time * 3 + index * 0.3) * 0.15;
+            child.material.emissiveIntensity = glowIntensity;
+          }
+        });
+      });
+
+      // Smooth particle rotation
+      particles.rotation.y += 0.0003;
+      particles.rotation.x += 0.0001;
+
+      // Smooth light movement
+      pointLight1.position.x = Math.sin(time * 0.8) * 25;
+      pointLight1.position.z = Math.cos(time * 0.8) * 25;
+      pointLight1.position.y = Math.sin(time * 0.4) * 12;
+      
+      pointLight2.position.x = Math.cos(time * 0.6) * 25;
+      pointLight2.position.z = Math.sin(time * 0.6) * 25;
+      pointLight2.position.y = Math.cos(time * 0.3) * 12;
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Smooth mouse interaction
+    let mouseX = 0;
+    let mouseY = 0;
+    let targetX = 0;
+    let targetY = 0;
+
+    document.addEventListener('mousemove', (event) => {
+      targetX = (event.clientX / window.innerWidth) * 2 - 1;
+      targetY = -(event.clientY / window.innerHeight) * 2 + 1;
+    });
+
+    // Add smooth camera follow in animate function
+    setInterval(() => {
+      mouseX += (targetX - mouseX) * 0.05;
+      mouseY += (targetY - mouseY) * 0.05;
+      
+      camera.position.x = mouseX * 3;
+      camera.position.y = mouseY * 3;
+      camera.lookAt(scene.position);
+    }, 16);
+  </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Data files
+checkpoints/
+*.pt
+*.pth
+data/TimGM6mb.sf2
+*.sf2
+
+# Notebooks (not needed for deployment)
+notebooks/
+
+# Output/input files
+app/outputs/
+app/inputs/
+output/
+
+# Logs
+logs/
+

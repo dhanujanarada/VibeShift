@@ -1,0 +1,7 @@
+<div class="error-container" style="backdrop-filter: blur(16px); background: rgba(124,58,237,0.08); border-radius: 24px; box-shadow: 0 8px 32px rgba(60,60,90,0.12); padding: 2rem 1.5rem; max-width: 420px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+  <p class="error-message" style="font-size:1.05rem;color:var(--danger-red);text-align:center;margin:0;">{{ error_message or 'Something went wrong. Please try again.' }}</p>
+  <button onclick="location.reload()" class="btn btn-secondary" style="width:100%;padding:0.75rem;border-radius:12px;">
+    <span>🔄</span>
+    <span>Try Again</span>
+  </button>
+</div>
