@@ -9,7 +9,10 @@ services:
       curl -LsSf https://astral.sh/uv/install.sh | sh
       export PATH="/root/.local/bin:$PATH"
       uv sync
-    startCommand: uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: |
+      export PATH="/root/.local/bin:$PATH"
+      uv run python -m utills.download_checkpoints
+      uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHONUNBUFFERED
         value: "1"

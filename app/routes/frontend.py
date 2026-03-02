@@ -29,8 +29,16 @@ INPUT_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR = APP_DIR / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+from huggingface_hub import hf_hub_download
+path = hf_hub_download(
+    repo_id="Nyarada/vibeshift-checkpoints",
+    filename="best.pt",
+    local_dir="test_download"
+)
+print(f"Downloaded to: {path}")
+
 # Model paths
-CHECKPOINT_PATH = ROOT_DIR / "checkpoints" / "checkpoints1" / "best.pt"
+CHECKPOINT_PATH = path
 SOUNDFONT_PATH = ROOT_DIR / "data" / "TimGM6mb.sf2"
 
 # Settings

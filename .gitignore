@@ -6,31 +6,18 @@ env/
 # Python cache
 __pycache__/
 *.pyc
-*.pyo
-*.egg-info/
-dist/
-build/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
 # Data files
-data/
+checkpoints/
 *.pt
+*.pth
+data/TimGM6mb.sf2
 
-# Uploads/Outputs
-uploads/
-outputs/
-*.mp3
-*.wav
-*.mid
-
-# Environment variables
-.env
-.env.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
+# Large notebooks (tracked separately)
+notebooks/data_processing/batch_converter.ipynb
+notebooks/demos/resynth.ipynb
+notebooks/training/rock_genre_transfer_notebook.ipynb
 
