@@ -45,10 +45,16 @@ def resample_dataset(input_dir, output_dir, target_sr=44100):
 
 def preprocess_mono(input_dir, output_dir):
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    for file_path in Path(input_dir).glob('**/*.wav'):
+    audio_files = (
+        list(Path(input_dir).glob('**/*.wav')) +
+        list(Path(input_dir).glob('**/*.mp3')) +
+        list(Path(input_dir).glob('**/*.flac'))
+    )
+
+    for file_path in audio_files:
         waveform, sr = torchaudio.load(file_path)
         original_channels = waveform.shape[0]
-        if waveform.shape[0] > 1:
+        if original_channels > 1:
             waveform = torch.mean(waveform, dim=0, keepdim=True)
         new_channels = waveform.shape[0]
         print(f"Processing: {file_path.name} | Channels: {original_channels} → {new_channels}", flush=True)
@@ -57,17 +63,13 @@ def preprocess_mono(input_dir, output_dir):
 
 
 def main():
-    repo_root = Path(__file__).resolve().parents[1]
-    input_dir = repo_root / "data" / "classical"
-    output_dir = repo_root / "data" / "classical_resample"
-    output_dir_1 = repo_root / "data" / "classical_final"
     target_sr = 44100
 
-    input = r"C:\Users\Dhanuja\Desktop\Vibeshift\VibeShift\data\resynth"
-    output = r"C:\Users\Dhanuja\Desktop\Vibeshift\VibeShift\data\resynth_final"
+    input = r"C:\Users\Dhanuja\Downloads\dataset\instrumentals"
+    output = r"C:\Users\Dhanuja\Downloads\dataset\preprocessed audio"
     
-    #resample_dataset(input_dir, output_dir, target_sr)
-    preprocess_mono(input_dir=input, output_dir=output)
+    resample_dataset(input, output, target_sr)
+    preprocess_mono(input_dir=output, output_dir=output)
 
 if __name__ == "__main__":
-    main()    
+    main()

@@ -1,3 +1,4 @@
+import gc
 import sys
 from pathlib import Path
 
@@ -161,16 +162,10 @@ class DACLatentProcessor:
             audio = self.model.decode(z)
         return audio.cpu().numpy()
 
-
-# Usage example
-if __name__ == "__main__":
-    processor = DACLatentProcessor(
-        model_type="44khz",
-        device="cpu",
-        n_quantizers=9  # Use all 9 RVQ codebooks
-    )
-    
-    processor.process_directory(
-        input_dir=r"C:\Users\Dhanuja\Desktop\Vibeshift\VibeShift\data\resynth_final",
-        output_dir=r"C:\Users\Dhanuja\Desktop\Vibeshift\VibeShift\data\codec\synth"
-    )
+    def _unload_dac(self):
+        if hasattr(self, "model") and self.model is not None:
+            del self.model
+            self.model = None
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()

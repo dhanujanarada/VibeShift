@@ -29,6 +29,7 @@ dependencies = [
     "numpy>=2.2.6",
     "omegaconf>=2.3.0",
     "pydub>=0.25.1",
+    "pyloudnorm>=0.2.0",
     "pysynth>=0.0.4",
     "python-multipart>=0.0.22",
     "setuptools>=80.10.2",

@@ -3,10 +3,12 @@
   hx-target="#result"
   hx-swap="innerHTML"
   hx-indicator="#loading"
+  hx-timeout="600000"
   enctype="multipart/form-data"
   class="upload-form"
+  style="backdrop-filter: blur(16px); border-radius: 24px; padding: 2.5rem 2rem; max-width: 420px; width: 100%; display: flex; flex-direction: column; align-items: center; border: 1.5px solid var(--glass-border); background: linear-gradient(180deg, rgba(8,10,15,0.55), rgba(6,8,12,0.5)); box-shadow: 0 18px 40px rgba(2,6,23,0.6);"
 >
-  <div class="file-input-wrapper">
+  <div class="file-input-wrapper" style="width:100%;margin-bottom:1.5rem;">
     <input
       type="file"
       name="audio"
@@ -14,18 +16,19 @@
       accept=".wav,.flac,.mp3"
       required
       onchange="updateFileLabel(this)"
+      style="width:100%;padding:0.75rem;border-radius:12px;border:1px solid var(--glass-border);background: rgba(255,255,255,0.02);color:var(--muted-text);font-size:1rem;"
     />
-    <label for="audio-file" class="file-input-label" id="file-label">
-      <span style="font-size: 1.5rem;">📁</span>
+    <label for="audio-file" class="file-input-label" id="file-label" style="display:flex;align-items:center;justify-content:center;width:100%;margin-top:0.5rem;color:var(--accent-primary);font-weight:600;font-size:1.1rem;">
+      <span style="font-size: 1.5rem;margin-right:0.5rem;"></span>
       <span id="file-text">Choose an audio file</span>
     </label>
   </div>
 
-  <button type="submit" class="btn btn-primary">
-    🎸 Transform to Rock
-  </button>
+    <button type="submit" class="btn btn-primary" style="width:100%;padding:0.75rem;font-size:1.1rem;margin-top:1rem;border-radius:12px;background:#7c3aed;color:#fff;border:none;box-shadow:0 2px 8px rgba(124,58,237,0.12);font-weight:600;letter-spacing:0.03em;">
+      Transform to Classical
+    </button>
 
-  <div id="loading" class="loading-container">
+  <div id="loading" class="loading-container" style="margin-top:1.5rem;">
     {% include "partials/loading.html" %}
   </div>
 </form>

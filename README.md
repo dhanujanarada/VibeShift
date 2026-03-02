@@ -65,7 +65,7 @@ uvicorn app.main:app --reload
 
 ```
 
-Visit: `http://localhost:8000`
+Visit: `http://127.0.0.1:8000 `
 
 
 ### Training
@@ -94,41 +94,8 @@ Configuration are in:
 
 ## Project Structure
 
-```
-VibeShift/
-├── app/                    # FastAPI web application
-│   ├── main.py            # Application entry point
-│   ├── routes/            # API routes
-│   ├── static/            # CSS, JS files
-│   └── templates/         # HTML templates
-├── models/                # Model architectures
-│   ├── dit.py            # Diffusion Transformer
-│   ├── flow.py           # Flow Matching implementation
-│   └── film_conditioner.py
-├── training/              # Training scripts
-│   └── training.py       # Main training loop
-├── utills/                # Utility functions
-│   ├── mel.py            # Mel-spectrogram processing
-│   └── embedding.py      # Genre embeddings
-├── data/                  # Dataset (not tracked in git)
-├── configs/               # Configuration files
-├── checkpoints/           # Model checkpoints (not tracked)
-└── notebooks/            # Jupyter notebooks for experiments
-```
 
 ## Configuration
-
-### Model Configuration (`configs/dit.yaml`)
-```yaml
-dit_model:
-  patch_height: 10      # Mel-spectrogram patch height
-  patch_width: 64       # Mel-spectrogram patch width
-  embed_dim: 512        # Embedding dimension
-  num_blocks: 12        # Number of transformer blocks
-  num_heads: 8          # Attention heads
-  num_genres: 10        # Number of supported genres
-```
-
 
 ## Development
 

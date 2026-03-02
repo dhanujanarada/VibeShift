@@ -126,15 +126,7 @@ class DiT(nn.Module):
         self.norm = nn.LayerNorm(self.embed_dim)
     
     def forward(self, x, t, genre_ids):
-        """
-        Args:
-            x: (B, T, latent_dim) DAC embeddings
-            t: (B,) timesteps in [0, 1]
-            genre_ids: (B,) genre indices for target genre (0=classical, 1=rock, 2=unknown)
-        
-        Returns:
-            (B, T, latent_dim) predicted velocity field
-        """
+       
         # Project input to embed_dim
         x = self.input_proj(x)  # (B, T, embed_dim)
         

@@ -28,6 +28,31 @@
   <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; position: relative; z-index: 1;">
     <div style="width: 100%; max-width: 600px;">
       {% block content %}{% endblock %}
+      <script>
+        // Hide upload form when download or error appears
+        function hideUploadForm() {
+          const form = document.querySelector('.upload-form');
+          if (form) form.style.display = 'none';
+        }
+        function showUploadForm() {
+          const form = document.querySelector('.upload-form');
+          if (form) form.style.display = 'flex';
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+          if (document.querySelector('.result-container') || document.querySelector('.error-container')) {
+            hideUploadForm();
+          }
+        });
+        // Listen for HTMX swaps to hide or show upload form appropriately
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+          // If result container exists now, hide the form
+          if (document.querySelector('.result-container') || document.querySelector('.error-container')) {
+            hideUploadForm();
+          } else {
+            showUploadForm();
+          }
+        });
+      </script>
     </div>
   </div>
 

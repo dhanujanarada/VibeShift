@@ -12,18 +12,7 @@ class FlowMatching(nn.Module):
 
     
     def compute_loss(self, x0, x1, genre_ids, mask=None): 
-        """
-        Compute flow matching training loss with optional masking for variable lengths.
         
-        Args:
-            x0: (B, T, latent_dim) source DAC embeddings
-            x1: (B, T, latent_dim) target DAC embeddings
-            genre_ids: (B,) target genre indices (0=classical, 1=rock, 2=unknown)
-            mask: (B, T) optional mask (1.0 for valid, 0.0 for padding)
-        
-        Returns:
-            loss: scalar MSE loss between predicted and true velocity
-        """
         batch_size = x0.size(0)
         device = x0.device
         

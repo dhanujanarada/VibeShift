@@ -80,14 +80,11 @@ class MelPatchEmbedding(nn.Module):
         patches = patches.reshape(B, -1, C * self.patch_height * self.patch_width)  # (B, num_patches, patch_dim)
         
         return self.proj(patches)
-
 class RoPEEmbedding(nn.Module):
     """Multi-head attention with Rotary Position Embeddings"""
-    
     def __init__(self, dim, num_heads, dropout=0.1, max_seq_len=2048, base=10000.0):
         super().__init__()
         assert dim % num_heads == 0
-        
         self.dim = dim
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
@@ -116,7 +113,6 @@ class RoPEEmbedding(nn.Module):
     
     def forward(self, x, attn_mask=None):
         B, L, D = x.shape
-        
         qkv = self.qkv(x).reshape(B, L, 3, self.num_heads, self.head_dim)
         qkv = qkv.permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
@@ -124,23 +120,16 @@ class RoPEEmbedding(nn.Module):
         cos_emb, sin_emb = self._compute_rope(L, x.device)
         q = self._apply_rope(q, cos_emb, sin_emb)
         k = self._apply_rope(k, cos_emb, sin_emb)
-        
-        # Use PyTorch's optimized scaled_dot_product_attention
-        # This automatically uses Flash Attention when available, greatly reducing memory
         if attn_mask is not None:
-            # Convert mask to bool type for scaled_dot_product_attention
-            # True = attend, False = ignore (opposite of masked_fill convention)
+            
             if attn_mask.dim() == 2:
-                # Padding mask (B, L) -> expand to (B, 1, 1, L)
+                
                 attn_mask = attn_mask.unsqueeze(1).unsqueeze(2)
             elif attn_mask.dim() == 3:
-                # Full mask (B, L, L) -> expand to (B, 1, L, L)
+              
                 attn_mask = attn_mask.unsqueeze(1)
-            # Invert mask: 0 -> False (ignore), non-zero -> True (attend)
+            
             attn_mask = attn_mask.bool()
-        
-        # Use Flash Attention for memory efficiency
-        # Shape: q, k, v are (B, num_heads, L, head_dim)
         out = F.scaled_dot_product_attention(
             q, k, v,
             attn_mask=attn_mask,

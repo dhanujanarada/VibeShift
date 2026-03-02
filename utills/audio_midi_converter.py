@@ -11,6 +11,7 @@ from basic_pitch.inference import predict
 import shutil
 import subprocess
 import time
+from pydub import AudioSegment
 
 
 class AudioMidiConverter:
@@ -91,16 +92,7 @@ class AudioMidiConverter:
         return midi_output_path
     
     def midi_to_audio(self, midi_path: str, output_path: str) -> str:
-        """
-        Convert MIDI file to audio using FluidSynth.
         
-        Args:
-            midi_path: Path to input MIDI file
-            output_path: Path to save output audio file
-            
-        Returns:
-            Path to generated audio file
-        """
         if not os.path.exists(midi_path):
             raise FileNotFoundError(f"MIDI file not found: {midi_path}")
         
@@ -111,10 +103,13 @@ class AudioMidiConverter:
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
         
+        # FluidSynth creates WAV first, then convert to MP3 if needed
+        temp_wav = output_path.replace('.mp3', '_temp.wav') if output_path.endswith('.mp3') else output_path
+        
         cmd = [
             self.fluidsynth_path,
             '-ni',
-            '-F', output_path,
+            '-F', temp_wav,
             '-r', '44100',
             self.soundfont_path,
             midi_path
@@ -132,11 +127,20 @@ class AudioMidiConverter:
         
         time.sleep(1)
         
-        if not os.path.exists(output_path):
-            raise RuntimeError(f"FluidSynth did not create output file: {output_path}")
+        if not os.path.exists(temp_wav):
+            raise RuntimeError(f"FluidSynth did not create output file: {temp_wav}")
         
-        file_size = os.path.getsize(output_path)
-        print(f"Audio file created: {output_path} ({file_size} bytes)")
+        # Convert WAV to MP3 if output is MP3
+        if output_path.endswith('.mp3'):
+            print(f"Converting WAV to MP3...")
+            audio = AudioSegment.from_wav(temp_wav)
+            audio.export(output_path, format='mp3', bitrate='192k')
+            os.remove(temp_wav)  # Remove temporary WAV file
+            file_size = os.path.getsize(output_path)
+            print(f"MP3 file created: {output_path} ({file_size} bytes)")
+        else:
+            file_size = os.path.getsize(output_path)
+            print(f"Audio file created: {output_path} ({file_size} bytes)")
         
         return output_path
     
@@ -154,7 +158,7 @@ class AudioMidiConverter:
         midi_path = self.audio_to_midi(audio_path, output_dir)
         
         input_path = Path(audio_path)
-        output_audio = os.path.join(output_dir, f"{input_path.stem}_synth{input_path.suffix}")
+        output_audio = os.path.join(output_dir, f"{input_path.stem}_synth.mp3")
         
         audio_path = self.midi_to_audio(midi_path, output_audio)
         return audio_path
