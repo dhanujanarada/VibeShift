@@ -1,0 +1,6 @@
+flow_matching:
+  input_dim: 80          
+  hidden_dim: 256
+  time_embed_dim: 256
+  num_layers: 4
+  activation: relu

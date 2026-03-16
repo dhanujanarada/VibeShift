@@ -1,0 +1,32 @@
+# DiT Model Configuration
+# Diffusion Transformer for genre transformation with flow matching
+# Configured for DAC embeddings (768-dim latent space)
+# Tuned for RTX 4090 (24GB VRAM)
+
+dit_model:
+  input_dim: 1024       # DAC latent dimension (don't change — must match DAC)
+  embed_dim: 512       # transformer embedding dimension (was 256)
+  num_blocks: 8        # number of transformer blocks (was 4)
+  num_heads: 8
+  num_genres: 3        # 0=classical, 1=rock, 2=synth
+  hidden_dim: 2048     # 4x embed_dim
+  dropout: 0.1
+
+dit_block:
+  # Inherited from model config above
+
+training:
+  batch_size: 16           # 4090 can handle 16–32 comfortably
+  learning_rate: 1e-3     # higher than 1e-4 with warmup + cosine
+  weight_decay: 0.01       # AdamW default, prevents overfitting
+  epochs: 200
+  warmup_epochs: 10        # ~5% of total
+  gradient_clip: 1.0
+  accumulation_steps: 1    # bump to 2 if you want effective batch 32
+  use_amp: true            # FP16 on 4090 is ~2x faster
+  num_workers: 8           # 4090 systems usually have good CPUs
+  pin_memory: true
+  
+  # DAC audio processing
+  sample_rate: 44100
+  latent_dim: 768

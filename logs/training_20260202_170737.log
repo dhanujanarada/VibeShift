@@ -1,0 +1,21 @@
+[2026-02-02 17:07:37] INFO - vibeshift_training - ============================================================
+[2026-02-02 17:07:37] INFO - vibeshift_training - VibeShift Training Script Started
+[2026-02-02 17:07:37] INFO - vibeshift_training - ============================================================
+[2026-02-02 17:07:37] INFO - vibeshift_training - Setting up training data...
+[2026-02-02 17:07:37] INFO - vibeshift_training - Found 911 source (non-rock) files
+[2026-02-02 17:07:37] INFO - vibeshift_training - Found 787 target (rock) files
+[2026-02-02 17:07:37] INFO - vibeshift_training - Creating dataset...
+[2026-02-02 17:07:37] INFO - vibeshift_training - Dataset created with 911 samples
+[2026-02-02 17:07:37] INFO - vibeshift_training - Sample shapes - x0: torch.Size([1, 100, 2811]), x1: torch.Size([1, 100, 2811])
+[2026-02-02 17:07:37] DEBUG - vibeshift_training -   x0 dtype: torch.float32, range: [0.0000, 11412.1338]
+[2026-02-02 17:07:37] DEBUG - vibeshift_training -   x1 dtype: torch.float32, range: [0.0000, 3732.3354]
+[2026-02-02 17:07:37] INFO - vibeshift_training - Initializing training configuration...
+[2026-02-02 17:07:37] DEBUG - vibeshift_training - Config: {'num_epochs': 10, 'batch_size': 2, 'learning_rate': 0.0001, 'weight_decay': 0.0001, 'grad_clip_norm': 1.0, 'checkpoint_interval': 1, 'checkpoint_dir': 'checkpoints', 'device': 'cpu'}
+[2026-02-02 17:07:37] INFO - vibeshift_training - Creating training pipeline...
+[2026-02-02 17:07:40] INFO - vibeshift_training - Training pipeline initialized successfully
+[2026-02-02 17:07:40] INFO - vibeshift_training - Setting up data loader...
+[2026-02-02 17:07:40] INFO - vibeshift_training - Testing batch loading...
+[2026-02-02 17:07:40] DEBUG - vibeshift_training - Batch shapes - x0: torch.Size([2, 1, 100, 2813]), x1: torch.Size([2, 1, 100, 2813]), mask: torch.Size([2, 1, 1, 2813])
+[2026-02-02 17:07:40] INFO - vibeshift_training - ============================================================
+[2026-02-02 17:07:40] INFO - vibeshift_training - Starting training loop
+[2026-02-02 17:07:40] INFO - vibeshift_training - ============================================================

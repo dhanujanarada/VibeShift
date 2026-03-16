@@ -1,0 +1,23 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Data files
+checkpoints/
+*.pt
+*.pth
+data/TimGM6mb.sf2
+
+# Large notebooks (tracked separately)
+notebooks/data_processing/batch_converter.ipynb
+notebooks/demos/resynth.ipynb
+notebooks/training/rock_genre_transfer_notebook.ipynb
+

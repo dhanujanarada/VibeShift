@@ -1,0 +1,30 @@
+<div class="result-container" style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;border-radius:24px;box-shadow:0 8px 32px rgba(60,60,90,0.12);padding:2rem 1.5rem;max-width:420px;width:100%;margin:auto;">
+  <div class="success-icon" style="font-size:2.5rem;margin-bottom:0.5rem;">✅</div>
+  <p class="success-message" style="font-size:1.2rem;color:#2d3748;margin-bottom:1.5rem;text-align:center;">Transformation Complete!</p>
+  <div class="audio-player" style="width:100%;margin-bottom:1.5rem;">
+    <audio controls preload="metadata" id="result-audio" style="width:100%;border-radius:12px;">
+      <source src="{{ file_url }}" type="audio/wav">
+      Your browser does not support the audio element.
+    </audio>
+  </div>
+  <a href="{{ file_url }}" download="{{ filename }}" class="btn btn-success" style="width:100%;padding:0.75rem;font-size:1.1rem;margin-bottom:1rem;border-radius:12px;background:#38a169;border:none;text-align:center;">
+    <span>⬇️</span>
+    <span>Download Classical Version</span>
+  </a>
+  <button onclick="location.reload()" class="btn btn-secondary" style="width:100%;padding:0.75rem;font-size:1.1rem;border-radius:12px;background:#4a5568;color:#fff;border:none;text-align:center;">
+    <span>🔄</span>
+    <span>Transform Another</span>
+  </button>
+</div>
+
+<script>
+// Auto-play the audio when loaded
+document.addEventListener('DOMContentLoaded', function() {
+  const audio = document.getElementById('result-audio');
+  if (audio) {
+    audio.volume = 0.7;
+    // Optional: auto-play (some browsers may block this)
+    // audio.play().catch(e => console.log('Auto-play prevented'));
+  }
+});
+</script>

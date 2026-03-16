@@ -1,0 +1,7 @@
+2026-02-02 16:47:37 | INFO | Starting training
+2026-02-02 16:47:37 | INFO | Root: C:\Users\Dhanuja\Desktop\Vibeshift\VibeShift
+2026-02-02 16:47:37 | INFO | Source files: 911
+2026-02-02 16:47:37 | INFO | Target files: 787
+2026-02-02 16:47:37 | INFO | Config: TrainingConfig(num_epochs=10, batch_size=2, learning_rate=0.0001, weight_decay=0.0001, grad_clip_norm=1.0, checkpoint_interval=1, checkpoint_dir='checkpoints', device='cpu')
+2026-02-02 16:47:40 | INFO | Pipeline initialized on cpu
+2026-02-02 16:47:40 | INFO | DataLoader ready. Batches: 456
