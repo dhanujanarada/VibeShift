@@ -46,11 +46,11 @@ def default_collate_with_dynamic_padding(batch: List[Tuple]) -> Tuple:
             for x in x1_list
         ])
         
-        # FIXED: Create attention masks (1.0 for valid, 0.0 for padding)
+        # Mask based on source (x0) length only — frames where source is
+        # zero-padded produce v_true = x1 - 0 = x1, a nonsensical training signal.
         mask = torch.zeros(len(batch), max_len)
-        for i, (len0, len1) in enumerate(zip(x0_lengths, x1_lengths)):
-            actual_len = max(len0, len1)  # Use longer of the two
-            mask[i, :actual_len] = 1.0
+        for i, len0 in enumerate(x0_lengths):
+            mask[i, :len0] = 1.0
         
         return x0_padded, x1_padded, genre_ids, mask
     else:
@@ -74,11 +74,10 @@ def default_collate_with_dynamic_padding(batch: List[Tuple]) -> Tuple:
             for x in x1_list
         ])
         
-        # FIXED: Create attention masks for standard dataset
+        # Mask based on source (x0) length only — same reasoning as above.
         mask = torch.zeros(len(batch), max_len)
-        for i, (len0, len1) in enumerate(zip(x0_lengths, x1_lengths)):
-            actual_len = max(len0, len1)
-            mask[i, :actual_len] = 1.0
+        for i, len0 in enumerate(x0_lengths):
+            mask[i, :len0] = 1.0
         
         return x0_padded, x1_padded, mask
 
@@ -144,13 +143,13 @@ class LatentPairDataset(Dataset):
         for src_file, tgt_file in zip(self.source_files[:sample_size], 
                                        self.target_files[:sample_size]):
             try:
-                src_data = torch.load(src_file, map_location="cpu")
+                src_data = torch.load(src_file, map_location="cpu", weights_only=True)
                 src_emb = self._extract_embeddings(src_data)
                 if src_emb.dim() == 3 and src_emb.size(0) == 1:
                     src_emb = src_emb.squeeze(0)
                 max_len = max(max_len, src_emb.size(0))
                 
-                tgt_data = torch.load(tgt_file, map_location="cpu")
+                tgt_data = torch.load(tgt_file, map_location="cpu", weights_only=True)
                 tgt_emb = self._extract_embeddings(tgt_data)
                 if tgt_emb.dim() == 3 and tgt_emb.size(0) == 1:
                     tgt_emb = tgt_emb.squeeze(0)
@@ -194,10 +193,10 @@ class LatentPairDataset(Dataset):
         
         try:
             # Load from disk
-            src_data = torch.load(src_file, map_location="cpu")
+            src_data = torch.load(src_file, map_location="cpu", weights_only=True)
             x0 = self._extract_embeddings(src_data)
             
-            tgt_data = torch.load(tgt_file, map_location="cpu")
+            tgt_data = torch.load(tgt_file, map_location="cpu", weights_only=True)
             x1 = self._extract_embeddings(tgt_data)
             
             # Remove batch dimension if present
@@ -262,9 +261,11 @@ class GenreAwareLatentDataset(LatentPairDataset):
             max_samples=max_samples,
         )
         
-        # Set default genre labels if not provided
+        # Set default genre labels if not provided.
+        # Default to genre 1 (punk/target) — all target files in VibeShift are punk.
+        # Genre convention: 0=synth (source), 1=punk (target), num_genres=null (CFG)
         if genre_labels is None:
-            genre_labels = {i: 0 for i in range(len(self))}
+            genre_labels = {i: 1 for i in range(len(self))}
         
         self.genre_labels = genre_labels
     
@@ -284,12 +285,15 @@ def create_dataloader(
     source_dir: str,
     target_dir: str,
     batch_size: int = 8,
-    shuffle: bool = True,
+    shuffle: bool = False,
     num_workers: int = 0,
     max_samples: Optional[int] = None,
     drop_last: bool = False,
     pin_memory: bool = True,
-) -> Tuple[DataLoader, LatentPairDataset]:
+    persistent_workers: bool = False,
+    genre_aware: bool = False,
+    genre_labels: Optional[Dict[int, int]] = None,
+) -> Tuple[DataLoader, Dataset]:
     """
     Create a dataloader with proper device handling and dynamic padding.
     
@@ -304,20 +308,45 @@ def create_dataloader(
         max_samples: Maximum number of samples to load
         drop_last: Drop last incomplete batch
         pin_memory: Pin memory for faster GPU transfer
+        persistent_workers: Keep worker processes alive between epochs (recommended
+            when num_workers > 0 in Jupyter to prevent workers dying between epochs)
+        genre_aware: If True, use GenreAwareLatentDataset; if False, use LatentPairDataset
+        genre_labels: Mapping of sample index to genre ID. Only used when genre_aware=True.
+            If None, defaults to all samples being genre 1 (punk/target).
     
     Returns:
         (dataloader, dataset): PyTorch DataLoader and underlying Dataset
     """
     # Warn if using multiprocessing with CUDA
     if num_workers > 0:
-        print(f"⚠️ Warning: Using {num_workers} workers. "
+        print(f"Warning: Using {num_workers} workers. "
               "Ensure CUDA is not initialized in worker processes.")
     
-    dataset = LatentPairDataset(
-        source_dir=source_dir,
-        target_dir=target_dir,
-        max_samples=max_samples,
-    )
+    if genre_aware:
+        # Default all samples to genre 1 (punk = target genre) if no labels provided.
+        # In VibeShift, all target files are punk so genre 1 is the correct default.
+        if genre_labels is None:
+            # Build default labels: all samples map to genre 1
+            _base = LatentPairDataset(
+                source_dir=source_dir,
+                target_dir=target_dir,
+                max_samples=max_samples,
+            )
+            genre_labels = {i: 1 for i in range(len(_base))}
+            del _base  # Clean up temporary dataset
+        
+        dataset = GenreAwareLatentDataset(
+            source_dir=source_dir,
+            target_dir=target_dir,
+            genre_labels=genre_labels,
+            max_samples=max_samples,
+        )
+    else:
+        dataset = LatentPairDataset(
+            source_dir=source_dir,
+            target_dir=target_dir,
+            max_samples=max_samples,
+        )
     
     dataloader = DataLoader(
         dataset,
@@ -326,6 +355,7 @@ def create_dataloader(
         num_workers=num_workers,
         drop_last=drop_last,
         pin_memory=pin_memory,
+        persistent_workers=persistent_workers if num_workers > 0 else False,
         collate_fn=default_collate_with_dynamic_padding,
     )
     

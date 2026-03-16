@@ -14,12 +14,13 @@ except FileNotFoundError:
     print(f"Warning: Config file not found at {CONFIG_PATH}. Using default config.")
     dit_config = OmegaConf.create({
         "dit_model": {
-            "embed_dim": 512,
-            "num_blocks": 8,
-            "num_heads": 8,
-            "num_genres": 3,
-            "hidden_dim": 2048,
-            "dropout": 0.1,
+            "embed_dim": 1024,      
+            "num_blocks": 16,       
+            "num_heads": 16,        
+            "num_genres": 2,        
+                                    
+            "hidden_dim": 4096,     
+            "dropout": 0.1,         
         }
     })
 
@@ -27,7 +28,7 @@ except FileNotFoundError:
 class DiTBlock(nn.Module):
     """Transformer block with RoPE attention and FiLM conditioning"""
     
-    def __init__(self, dim, num_heads, num_genres, hidden_dim=2048, dropout=0.1):
+    def __init__(self, dim, num_heads, num_genres, hidden_dim=2048, dropout=0.1, film_shallow=False):
         super().__init__()
         self.dim = dim
         self.num_heads = num_heads
@@ -38,7 +39,7 @@ class DiTBlock(nn.Module):
         
         # FiLM conditioning (takes pre-embedded time)
         self.norm2 = nn.LayerNorm(dim)
-        self.film = FiLMConditioner(dim, num_genres)
+        self.film = FiLMConditioner(dim, num_genres, shallow=film_shallow)
         
         # MLP
         self.norm3 = nn.LayerNorm(dim)
@@ -78,18 +79,24 @@ class DiTBlock(nn.Module):
 class DiT(nn.Module):
     """
     Diffusion Transformer for genre transformation with flow matching.
-    Designed for DAC embeddings: (B, T, latent_dim) where latent_dim matches input_dim
+    Designed for DAC embeddings: (B, T, latent_dim) where latent_dim=64 for all DAC variants.
+    
+    Args:
+        input_dim: Dimension of the DAC quantized latent z. Fixed at 64 for all DAC
+                   model variants (44khz, 24khz, 16khz). Do not change unless using
+                   a different codec.
     """
     
     def __init__(
         self,
-        input_dim=1024,      # DAC latent dimension (override if your latents differ)
+        input_dim=64,        # DAC quantized latent dimension: D=64 for all DAC variants
         embed_dim=None,
         num_blocks=None,
         num_heads=None,
         num_genres=None,
         hidden_dim=None,
         dropout=None,
+        film_shallow=False,  # True for legacy checkpoints without the middle hidden layer
         config=None,
     ):
         super().__init__()
@@ -106,6 +113,7 @@ class DiT(nn.Module):
         self.num_genres = num_genres or config.num_genres
         self.hidden_dim = hidden_dim or config.hidden_dim
         self.dropout = dropout or config.dropout
+        self.film_shallow = film_shallow
         
         # Time embedding for diffusion timesteps
         self.time_emb = TimeEmbedding(self.embed_dim)
@@ -116,9 +124,13 @@ class DiT(nn.Module):
         # Output projection: embed_dim -> DAC latent dim
         self.output_proj = nn.Linear(self.embed_dim, self.input_dim)
         
-        # Transformer blocks
+        # CFG: reserve one extra genre slot as the null / unconditional token.
+        # null_genre_id == num_genres (one past the last real genre).
+        self.null_genre_id: int = self.num_genres
+
+        # Transformer blocks — embedding table has num_genres + 1 entries
         self.blocks = nn.ModuleList([
-            DiTBlock(self.embed_dim, self.num_heads, self.num_genres, self.hidden_dim, self.dropout)
+            DiTBlock(self.embed_dim, self.num_heads, self.num_genres + 1, self.hidden_dim, self.dropout, film_shallow=self.film_shallow)
             for _ in range(self.num_blocks)
         ])
         

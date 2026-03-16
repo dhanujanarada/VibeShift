@@ -61,7 +61,7 @@ def get_model():
     if _model is None:
         with _lock:
             if _model is None:
-                print("\n🔧 Loading VibeShift model...")
+                print("Loading VibeShift model...")
                 _model = VibeShiftInference(
                     checkpoint_path=str(CHECKPOINT_PATH),
                     soundfont_path=str(SOUNDFONT_PATH),

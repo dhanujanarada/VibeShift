@@ -17,6 +17,10 @@ checkpoints/
 *.pth
 data/TimGM6mb.sf2
 *.sf2
+*.png
+*.jpg
+*.jpeg
+
 
 # Notebooks (not needed for deployment)
 notebooks/

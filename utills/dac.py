@@ -54,7 +54,11 @@ class DACLatentProcessor:
         Encode single audio file to DAC latents.
         
         Returns:
-            dict with 'z' (quantized latents), 'codes', 'latents'
+            dict with 'z' (quantized latents), 'codes', 'latents'.
+            All tensors are on CPU in the correct format for the DiT pipeline:
+            - z: shape (B, T, D) — already transposed from DAC encoder output
+            - codes: shape (B, num_codebooks, T)
+            - latents: pre-quantization latents
         """
         signal = AudioSignal(str(audio_path))
         
@@ -64,9 +68,9 @@ class DACLatentProcessor:
             z, codes, latents, _, _ = self.model.encode(x, self.n_quantizers)
             
         return {
-            'z': z.cpu().numpy(),           # Quantized latents (B, D, T)
-            'codes': codes.cpu().numpy(),   # Discrete codes (B, num_codebooks, T)
-            'latents': latents.cpu().numpy(), # Pre-quantization latents
+            'z': z.transpose(1, 2).cpu(),   # (B, D, T) -> (B, T, D) for DiT
+            'codes': codes.cpu(),           # (B, num_codebooks, T)
+            'latents': latents.cpu(),       # Pre-quantization latents, on CPU
             'sample_rate': signal.sample_rate,
             'original_length': signal.signal_length
         }
@@ -100,23 +104,14 @@ class DACLatentProcessor:
             try:
                 print(f"[{i+1}/{len(audio_files)}] Processing {file_path.name}...", end=" ")
                 
-                # Encode to latents
+                # Encode to latents — encode_file returns (B, T, D) tensors ready for DiT
                 latent_data = self.encode_file(file_path)
-                
-                # Save as .npz (preserves directory structure)
-                relative_path = file_path.relative_to(input_path)
-                output_file = output_path / relative_path.with_suffix('.pt')
-                output_file.parent.mkdir(parents=True, exist_ok=True)
-                
-                # Convert DAC latents from (B, D, T) to (B, T, D) for consistency with DiT expectations
-                z_tensor = torch.from_numpy(latent_data["z"])  # (B, D, T)
-                z_tensor = z_tensor.transpose(1, 2)  # Convert to (B, T, D)
                 
                 torch.save(
                     {
-                        "z": z_tensor,
-                        "codes": torch.from_numpy(latent_data["codes"]),
-                        "latents": torch.from_numpy(latent_data["latents"]),
+                        "z": latent_data["z"],              # already (B, T, D)
+                        "codes": latent_data["codes"],
+                        "latents": latent_data["latents"],
                         "sample_rate": latent_data["sample_rate"],
                         "original_length": latent_data["original_length"],
                     },
@@ -143,22 +138,30 @@ class DACLatentProcessor:
             "original_length": int(data["original_length"]),
         }
     
-    def decode_latents(self, z: torch.Tensor) -> np.ndarray:
+    def decode_latents(self, z: torch.Tensor, input_format: str = "TxD") -> np.ndarray:
         """
-        Decode latents back to audio waveform.
-        
+        Decode DAC latents back to audio waveform.
+
         Args:
-            z: Quantized latents (B, D, T) or (B, T, D) - will transpose if needed
-        
+            z: DAC quantized latents tensor.
+            input_format: Format of the input tensor.
+                "TxD" (default): shape is (B, T, D) — the format returned by encode_file
+                                 and saved in .pt files. Will be transposed to (B, D, T)
+                                 for the DAC decoder.
+                "DxT": shape is (B, D, T) — raw DAC encoder output format.
+                       Will be passed to decoder directly without transposing.
+
         Returns:
-            Audio waveform as numpy array
+            Audio waveform as numpy array, shape (B, 1, num_samples).
         """
         with torch.no_grad():
             z = z.to(self.device)
-            # Ensure z is in (B, D, T) format for DAC decoder
-            if z.dim() == 3 and z.shape[2] < z.shape[1]:
-                # Likely (B, T, D) format, transpose to (B, D, T)
-                z = z.transpose(1, 2)
+            if input_format == "TxD":
+                z = z.transpose(1, 2)  # (B, T, D) -> (B, D, T) for DAC decoder
+            elif input_format != "DxT":
+                raise ValueError(
+                    f"Unknown input_format '{input_format}'. Use 'TxD' or 'DxT'."
+                )
             audio = self.model.decode(z)
         return audio.cpu().numpy()
 

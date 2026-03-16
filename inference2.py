@@ -89,7 +89,7 @@ class VibeShiftInference:
         self.dac_model = None
         self.flow_model = None
 
-        logger.info(f"✓ VibeShiftInference initialized")
+        logger.info("VibeShiftInference initialized")
         logger.info(f"  Device: {self.device}")
         logger.info(f"  Checkpoint: {self.checkpoint_path.name}")
         logger.info(f"  Soundfont: {self.soundfont_path.name}")
@@ -101,7 +101,7 @@ class VibeShiftInference:
             self.midi_converter = AudioMidiConverter(
                 soundfont_path=str(self.soundfont_path)
             )
-            logger.info("✓ MIDI converter loaded")
+            logger.info("MIDI converter loaded")
 
     def _load_dac_model(self):
         """Load DAC encoder/decoder model."""
@@ -115,7 +115,7 @@ class VibeShiftInference:
             for param in self.dac_model.parameters():
                 param.requires_grad = False
 
-            logger.info("✓ DAC model loaded")
+            logger.info("DAC model loaded")
 
     def _unload_dac_model(self):
         """Unload DAC model to free memory."""
@@ -124,7 +124,57 @@ class VibeShiftInference:
             del self.dac_model
             self.dac_model = None
             gc.collect()
-            logger.info("✓ DAC model unloaded")
+            logger.info("DAC model unloaded")
+
+    @staticmethod
+    def _infer_dit_config(state_dict: dict) -> dict:
+        """
+        Auto-detect DiT architecture from checkpoint state dict shapes.
+        Eliminates manual config and handles legacy vs current FiLMConditioner.
+        """
+        sd = state_dict
+
+        # input_dim / embed_dim from input projection
+        input_proj_w = sd['dit.input_proj.weight']          # [embed_dim, input_dim]
+        embed_dim  = input_proj_w.shape[0]
+        input_dim  = input_proj_w.shape[1]
+
+        # num_blocks: count distinct block indices
+        block_indices = set()
+        for k in sd:
+            if k.startswith('dit.blocks.'):
+                block_indices.add(int(k.split('.')[2]))
+        num_blocks = max(block_indices) + 1 if block_indices else 8
+
+        # hidden_dim (MLP): mlp.0 = Linear(embed_dim, hidden_dim)  → weight [hidden_dim, embed_dim]
+        hidden_dim = sd['dit.blocks.0.mlp.0.weight'].shape[0]
+
+        # num_genres: genre_emb has shape [num_genres_in_block, embed_dim]
+        # DiT creates blocks with (num_genres + 1) slots, so subtract 1
+        genre_emb_w = sd['dit.blocks.0.film.genre_emb.genre_emb']
+        num_genres = genre_emb_w.shape[0] - 1
+
+        # num_heads: derive from RoPE inv_freq buffer  [head_dim // 2]
+        # head_dim = embed_dim // num_heads  →  num_heads = embed_dim // (inv_freq.shape[0] * 2)
+        inv_freq = sd.get('dit.blocks.0.attn.inv_freq')
+        if inv_freq is not None:
+            num_heads = embed_dim // (inv_freq.shape[0] * 2)
+        else:
+            num_heads = 8  # safe default for embed_dim=512
+
+        # FiLM architecture: legacy checkpoints have no proj.4 (only 2 Linear layers)
+        film_shallow = 'dit.blocks.0.film.proj.4.weight' not in sd
+
+        config = dict(
+            input_dim=input_dim,
+            embed_dim=embed_dim,
+            num_blocks=num_blocks,
+            num_heads=num_heads,
+            num_genres=num_genres,
+            hidden_dim=hidden_dim,
+            film_shallow=film_shallow,
+        )
+        return config
 
     def _load_flow_model(self):
         """Load trained genre transfer flow matching model."""
@@ -141,14 +191,18 @@ class VibeShiftInference:
             if 'model_state_dict' in checkpoint:
                 state_dict = checkpoint['model_state_dict']
                 epoch = checkpoint.get('epoch', 'unknown')
-                loss = checkpoint.get('loss', 'unknown')
+                loss = checkpoint.get('best_loss', checkpoint.get('loss', 'unknown'))
                 logger.info(f"  Epoch: {epoch}")
-                logger.info(f"  Training loss: {loss}")
+                logger.info(f"  Best loss: {loss}")
             else:
                 state_dict = checkpoint
 
-            # Create DiT and FlowMatching models
-            dit = DiT(**self.dit_config)
+            # Auto-detect DiT config from state dict shapes
+            detected_config = self._infer_dit_config(state_dict)
+            logger.info(f"  Auto-detected config: {detected_config}")
+
+            # Create DiT and FlowMatching models with detected config
+            dit = DiT(**detected_config)
             self.flow_model = FlowMatching(dit)
 
             # Load weights
@@ -161,7 +215,8 @@ class VibeShiftInference:
                 param.requires_grad = False
 
             n_params = sum(p.numel() for p in self.flow_model.parameters()) / 1e6
-            logger.info(f"✓ Flow model loaded ({n_params:.2f}M parameters)")
+            logger.info(f"Flow model loaded ({n_params:.2f}M parameters)")
+            logger.info(f"  FiLM projection: {'shallow (legacy)' if detected_config['film_shallow'] else 'deep (current)'}")
 
     def _unload_flow_model(self):
         """Unload flow model to free memory."""
@@ -170,7 +225,7 @@ class VibeShiftInference:
             del self.flow_model
             self.flow_model = None
             gc.collect()
-            logger.info("✓ Flow model unloaded")
+            logger.info("Flow model unloaded")
 
     def preprocess_audio(
         self,
@@ -214,7 +269,7 @@ class VibeShiftInference:
             audio_tensor = audio_tensor.mean(dim=0, keepdim=True)
 
         duration = audio_tensor.shape[1] / sr
-        logger.info(f"✓ Preprocessed: mono, {sr} Hz, {duration:.2f}s")
+        logger.info(f"Preprocessed: mono, {sr} Hz, {duration:.2f}s")
 
         return audio_tensor, sr
 
@@ -251,7 +306,7 @@ class VibeShiftInference:
             audio_path=audio_path,
             output_dir=str(output_dir)
         )
-        logger.info(f"✓ MIDI saved: {midi_path}")
+        logger.info(f"MIDI saved: {midi_path}")
 
         # MIDI → Synth audio
         logger.info(f"[2/2] Synthesizing MIDI with soundfont...")
@@ -260,7 +315,7 @@ class VibeShiftInference:
             midi_path=midi_path,
             output_path=str(synth_audio_path)
         )
-        logger.info(f"✓ Synth audio saved: {synth_audio_path}")
+        logger.info(f"Synth audio saved: {synth_audio_path}")
 
         return str(midi_path), str(synth_audio_path)
 
@@ -303,7 +358,7 @@ class VibeShiftInference:
             else:
                 latent = z
 
-        logger.info(f"✓ Latent encoded")
+        logger.info(f"Latent encoded")
         logger.info(f"  Shape: {latent.shape}")
         logger.info(f"  (Batch, Time steps, Embedding dim)")
 
@@ -315,7 +370,8 @@ class VibeShiftInference:
         source_latent: torch.Tensor,
         target_genre: Union[int, str],
         num_steps: int = 150,
-        show_progress: bool = True
+        show_progress: bool = True,
+        guidance_scale: float = 1.0,
     ) -> torch.Tensor:
         """
         Transfer latent to target genre using flow matching.
@@ -325,6 +381,9 @@ class VibeShiftInference:
             target_genre: Target genre (int ID or string name)
             num_steps: Number of flow matching steps
             show_progress: Show progress bar
+            guidance_scale: CFG guidance strength (1.0 = no guidance, 3-7 = recommended).
+                            Values >1 require the model to have been trained with
+                            cfg_dropout_prob > 0.
 
         Returns:
             transferred_latent: (B, T, D) transferred latent
@@ -351,6 +410,7 @@ class VibeShiftInference:
 
         logger.info(f"Target genre: {genre_name} (ID: {target_genre_id})")
         logger.info(f"Flow steps: {num_steps}")
+        logger.info(f"CFG guidance scale: {guidance_scale}")
         logger.info(f"Source latent: {source_latent.shape}")
 
         B, T, D = source_latent.shape
@@ -363,6 +423,13 @@ class VibeShiftInference:
             dtype=torch.long,
             device=self.device
         )
+
+        # Null genre tensor for CFG (one past the last real genre)
+        null_genre_ids = None
+        if guidance_scale != 1.0:
+            null_genre_id = self.flow_model.dit.null_genre_id
+            null_genre_ids = torch.full((B,), null_genre_id, dtype=torch.long, device=self.device)
+            logger.info(f"CFG enabled — null_genre_id: {null_genre_id}")
 
         # Flow matching: interpolate from source (t=0) to target (t=1)
         dt = 1.0 / num_steps
@@ -377,13 +444,21 @@ class VibeShiftInference:
         for step in iterator:
             t = torch.full((B,), step * dt, device=self.device)
 
-            # Predict velocity field
-            v_pred = self.flow_model.dit(x, t, genre_ids)
+            # Conditioned velocity
+            v_cond = self.flow_model.dit(x, t, genre_ids)
+
+            if guidance_scale != 1.0:
+                # Unconditioned velocity (null genre)
+                v_uncond = self.flow_model.dit(x, t, null_genre_ids)
+                # CFG combination: push harder toward target genre
+                v_pred = v_uncond + guidance_scale * (v_cond - v_uncond)
+            else:
+                v_pred = v_cond
 
             # Euler integration step
             x = x + v_pred * dt
 
-        logger.info(f"✓ Genre transfer complete")
+        logger.info(f"Genre transfer complete")
         logger.info(f"  Output latent: {x.shape}")
 
         return x
@@ -433,7 +508,7 @@ class VibeShiftInference:
         sample_rate = self.dac_model.sample_rate
         duration = len(audio_np) / sample_rate
 
-        logger.info(f"✓ Audio decoded")
+        logger.info(f"Audio decoded")
         logger.info(f"  Samples: {len(audio_np)}")
         logger.info(f"  Sample rate: {sample_rate} Hz")
         logger.info(f"  Duration: {duration:.2f}s")
@@ -446,7 +521,8 @@ class VibeShiftInference:
         target_genre: Union[int, str],
         output_dir: str,
         num_steps: int = 50,
-        save_intermediates: bool = True
+        save_intermediates: bool = True,
+        guidance_scale: float = 1.0,
     ) -> Dict[str, str]:
         """
         Run complete genre transfer pipeline.
@@ -458,6 +534,7 @@ class VibeShiftInference:
             output_dir: Directory to save all outputs
             num_steps: Number of flow matching steps (default: 50)
             save_intermediates: Save intermediate files (MIDI, synth, latents)
+            guidance_scale: CFG guidance strength (1.0 = no guidance, 3-7 = recommended)
 
         Returns:
             output_paths: Dictionary of all generated file paths
@@ -500,7 +577,7 @@ class VibeShiftInference:
             synth_latent_path = output_dir / f"{input_name}_synth_latent.pt"
             torch.save(source_latent.cpu(), synth_latent_path)
             output_paths['synth_latent'] = str(synth_latent_path)
-            logger.info(f"✓ Synth latent saved: {synth_latent_path.name}")
+            logger.info(f"Synth latent saved: {synth_latent_path.name}")
 
         # Unload DAC before loading flow model
         self._unload_dac_model()
@@ -509,14 +586,15 @@ class VibeShiftInference:
         transferred_latent = self.transfer_genre(
             source_latent=source_latent,
             target_genre=target_genre,
-            num_steps=num_steps
+            num_steps=num_steps,
+            guidance_scale=guidance_scale,
         )
 
         if save_intermediates:
             transferred_latent_path = output_dir / f"{input_name}_to_{genre_name}_latent.pt"
             torch.save(transferred_latent.cpu(), transferred_latent_path)
             output_paths['transferred_latent'] = str(transferred_latent_path)
-            logger.info(f"✓ Transferred latent saved: {transferred_latent_path.name}")
+            logger.info(f"Transferred latent saved: {transferred_latent_path.name}")
 
         # Unload flow model before reloading DAC
         self._unload_flow_model()
@@ -529,7 +607,7 @@ class VibeShiftInference:
         sf.write(str(output_audio_path), audio_np, sample_rate)
         output_paths['output_audio'] = str(output_audio_path)
 
-        logger.info(f"✓ Final audio saved: {output_audio_path.name}")
+        logger.info(f"Final audio saved: {output_audio_path.name}")
 
         # Cleanup DAC
         self._unload_dac_model()
@@ -565,7 +643,7 @@ class VibeShiftInference:
             self.midi_converter = None
 
         gc.collect()
-        logger.info("✓ Cleanup complete")
+        logger.info("Cleanup complete")
 
     def __enter__(self):
         """Context manager support."""

@@ -350,11 +350,12 @@ class Trainer:
                 log_str += f" | Best: {self.best_loss:.6f} (ep {self.best_epoch+1})"
             
             print(log_str)
-            
+
             # Save checkpoint periodically
             if (epoch + 1) % save_interval == 0:
-                self.save_checkpoint(suffix=f"_epoch_{epoch+1}")
-            
+                ckpt_path = self.save_checkpoint(suffix=f"_epoch_{epoch+1}")
+                print(f"  [Checkpoint] Saved → {ckpt_path.name}")
+
             # Early stopping
             if val_loss is not None:
                 if val_loss < self.best_loss:
@@ -362,7 +363,8 @@ class Trainer:
                     self.best_epoch = epoch
                     early_stop_counter = 0
                     # Save best checkpoint
-                    self.save_checkpoint(is_best=True)
+                    ckpt_path = self.save_checkpoint(is_best=True)
+                    print(f"  [Best] New best val loss {self.best_loss:.6f} → {ckpt_path.name}")
                 else:
                     early_stop_counter += 1
                     
@@ -535,7 +537,7 @@ class TrainingConfig:
     def __init__(
         self,
         num_epochs: int = 100,
-        batch_size: int = 8,
+        batch_size: int = 32,
         learning_rate: float = 1e-4,
         weight_decay: float = 1e-5,
         gradient_clip: Optional[float] = 1.0,
@@ -543,7 +545,7 @@ class TrainingConfig:
         early_stopping_patience: Optional[int] = None,
         log_interval: int = 10,
         monitor_gradients: bool = False,
-        use_amp: bool = False,
+        use_amp: bool = torch.cuda.is_available(),
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         """
@@ -551,7 +553,7 @@ class TrainingConfig:
         
         Args:
             num_epochs: Number of training epochs
-            batch_size: Batch size for training
+            batch_size: Batch size for training (default 32 for RTX 4090; reduce to 16 or 8 if OOM)
             learning_rate: Learning rate for optimizer
             weight_decay: L2 regularization coefficient
             gradient_clip: Max gradient norm for clipping (None to disable)
@@ -559,7 +561,7 @@ class TrainingConfig:
             early_stopping_patience: Stop if val loss doesn't improve for N epochs
             log_interval: Log progress every N epochs
             monitor_gradients: Whether to monitor gradient norms
-            use_amp: Whether to use automatic mixed precision
+            use_amp: Whether to use automatic mixed precision (auto-enabled on CUDA)
             device: Device to train on
         """
         self.num_epochs = num_epochs

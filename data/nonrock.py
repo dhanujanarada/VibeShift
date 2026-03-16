@@ -39,10 +39,10 @@ def get_genre_distribution(metadata, non_rock_genres):
 def main():
     rock_genres, categories = load_genre_config()
     rock_genre_ids = set(rock_genres.keys())
-    print(f"✓ {len(rock_genres)} rock genres loaded\n")
+    print(f"{len(rock_genres)} rock genres loaded")
     
     dataset = load_dataset("benjamin-paine/free-music-archive-small", split="train")
-    print(f"✓ {len(dataset):,} total samples\n")
+    print(f"{len(dataset):,} total samples")
     
     dataset_meta = dataset.remove_columns(['audio'])
     non_rock_meta = filter_non_rock_songs(dataset_meta, rock_genre_ids)
@@ -82,4 +82,4 @@ def main():
 
 if __name__ == "__main__":
     rock_dataset = main()
-    print("\n✓ Complete!")
+    print("Complete")

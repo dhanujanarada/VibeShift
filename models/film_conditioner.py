@@ -1,5 +1,3 @@
-print("film_conditioner.py STARTED")
-
 import torch
 import torch.nn as nn
 from utills.embedding import GenreEmbedding
@@ -8,22 +6,38 @@ class FiLMConditioner(nn.Module):
     """
     FiLM (Feature-wise Linear Modulation) for conditioning on time and genre.
     Takes pre-embedded time and genre, outputs scale and shift parameters.
+
+    Args:
+        shallow: If True, uses the legacy 2-Linear projection (no middle
+                 hidden-to-hidden layer). Required when loading checkpoints
+                 that were trained before the 3-Linear architecture was added.
     """
     
-    def __init__(self, embed_dim, num_genres, hidden_dim=512):
+    def __init__(self, embed_dim, num_genres, hidden_dim=512, shallow=False):
         super().__init__()
         
-        # Genre embedding
-        self.genre_emb = GenreEmbedding(num_genres, embed_dim, use_sinusoidal=True)
+        # Genre embedding — must be learnable for CFG null token to work
+        # The null token (at index num_genres) needs to learn what unconditional means
+        self.genre_emb = GenreEmbedding(num_genres, embed_dim, use_sinusoidal=False)
         
         # Project concatenated embeddings to scale/shift
-        self.proj = nn.Sequential(
-            nn.Linear(embed_dim * 2, hidden_dim),
-            nn.GELU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.GELU(),
-            nn.Linear(hidden_dim, embed_dim * 2)
-        )
+        if shallow:
+            # Legacy architecture: Linear → GELU → Linear → GELU  (no middle layer)
+            self.proj = nn.Sequential(
+                nn.Linear(embed_dim * 2, hidden_dim),  # 0
+                nn.GELU(),                              # 1
+                nn.Linear(hidden_dim, embed_dim * 2),  # 2
+                nn.GELU(),                              # 3
+            )
+        else:
+            # Current architecture: Linear → GELU → Linear → GELU → Linear
+            self.proj = nn.Sequential(
+                nn.Linear(embed_dim * 2, hidden_dim),  # 0
+                nn.GELU(),                              # 1
+                nn.Linear(hidden_dim, hidden_dim),      # 2
+                nn.GELU(),                              # 3
+                nn.Linear(hidden_dim, embed_dim * 2)   # 4
+            )
     
     def forward(self, time_emb, genre_ids):
         """
