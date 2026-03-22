@@ -39,7 +39,7 @@ def test_zip_fix():
         dataset = LatentPairDataset(str(temp_dir1), str(temp_dir2))
         max_len = dataset._compute_max_length()
         
-        print(f"✅ PASS: _compute_max_length() executed without zip() error")
+        print(f"PASS: _compute_max_length() executed without zip() error")
         print(f"   Computed max length: {max_len}")
     finally:
         # Cleanup
@@ -73,7 +73,7 @@ def test_efficient_getitem():
             x0, x1 = dataset[i]
             assert x0.shape[1] == 512, "Wrong embedding dim"
         
-        print("✅ PASS: __getitem__ works efficiently without calling _compute_max_length repeatedly")
+        print("PASS: __getitem__ works efficiently without calling _compute_max_length repeatedly")
     finally:
         import shutil
         shutil.rmtree(temp_dir1, ignore_errors=True)
@@ -110,7 +110,7 @@ def test_mask_generation():
     assert mask[1, :90].sum() == 90, "Mask for second sample incorrect"
     assert mask[2, :150].sum() == 150, "Mask for third sample incorrect"
     
-    print("✅ PASS: Attention masks generated correctly")
+    print("PASS: Attention masks generated correctly")
     print(f"   Sample 0: {mask[0, :10]} ... (first 10 values)")
     print(f"   Sample 1: {mask[1, :10]} ... (first 10 values)")
     
@@ -127,7 +127,7 @@ def test_mask_generation():
     assert len(genre_ids) == 3, "Genre IDs should have 3 elements"
     assert mask_g.shape == (3, 150), f"Genre-aware mask shape incorrect: {mask_g.shape}"
     
-    print("✅ PASS: Genre-aware collate with masks works correctly")
+    print("PASS: Genre-aware collate with masks works correctly")
     print(f"   Genre IDs: {genre_ids}")
     print(f"   Mask shape: {mask_g.shape}")
 
@@ -154,7 +154,7 @@ def test_scheduler_storage():
     assert hasattr(trainer, 'scheduler'), "Trainer should have 'scheduler' attribute"
     assert trainer.scheduler is None, "Scheduler should be None initially"
     
-    print("✅ PASS: Trainer has 'scheduler' instance variable initialized to None")
+    print("PASS: Trainer has 'scheduler' instance variable initialized to None")
     
     # Create a scheduler and pass to train (mock train call)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5)
@@ -164,7 +164,7 @@ def test_scheduler_storage():
     trainer.scheduler = scheduler
     assert trainer.scheduler is not None, "Scheduler should be stored"
     
-    print("✅ PASS: Scheduler can be stored in trainer.scheduler")
+    print("PASS: Scheduler can be stored in trainer.scheduler")
 
 
 def test_batch_unpacking_with_mask():
@@ -179,7 +179,7 @@ def test_batch_unpacking_with_mask():
     assert x0.shape[0] == 4, "Batch size should be 4"
     assert genre_ids.shape == (4,), "Genre IDs should have shape (4,)"
     assert mask is None, "Mask should be None for 2-tuple"
-    print("✅ PASS: 2-tuple unpacking works (x0, x1) -> (x0, x1, genre_ids=0, mask=None)")
+    print("PASS: 2-tuple unpacking works (x0, x1) -> (x0, x1, genre_ids=0, mask=None)")
     
     # Test 3-tuple with genre_ids (x0, x1, genre_ids)
     batch_3_genre = (
@@ -190,7 +190,7 @@ def test_batch_unpacking_with_mask():
     x0, x1, genre_ids, mask = Trainer._unpack_batch(batch_3_genre)
     assert genre_ids.dtype == torch.long, "Genre IDs should be long"
     assert mask is None, "Mask should be None for 3-tuple with genre_ids"
-    print("✅ PASS: 3-tuple unpacking with genre_ids works")
+    print("PASS: 3-tuple unpacking with genre_ids works")
     
     # Test 3-tuple with mask (x0, x1, mask)
     batch_3_mask = (
