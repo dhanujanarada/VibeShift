@@ -145,7 +145,6 @@ class RoPEEmbedding(nn.Module):
 
 class GenreEmbedding(nn.Module):
   
-    
     def __init__(self, num_genres, embed_dim, use_sinusoidal=True):
         super().__init__()
         self.num_genres = num_genres

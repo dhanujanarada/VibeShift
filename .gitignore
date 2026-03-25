@@ -22,7 +22,7 @@ tmp/
 *.zip
 
 # Large notebooks (tracked separately)
-notebooks/data_processing/batch_converter.ipynb
+notebooks/
 notebooks/demos/resynth.ipynb
 notebooks/training/rock_genre_transfer_notebook.ipynb
 

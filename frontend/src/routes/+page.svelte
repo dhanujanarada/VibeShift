@@ -2,8 +2,33 @@
 <script>
   import AudioCard from "$lib/components/audiocard.svelte";
   import MelSpectrogram from "$lib/components/MelSpectrogram.svelte";
-  import AudioAnalysis from "$lib/components/AudioAnalysis.svelte";
   import { transformLatent, audioUrl } from "../api.js";
+
+  import radarImg from "$lib/assets/radar_similarity.png";
+  import barImg from "$lib/assets/bar_distance_metrics.png";
+  import mfccImg from "$lib/assets/mfcc_per_band_mae.png";
+  import pcaImg from "$lib/assets/pca_scatter.png";
+  import fadData from "$lib/assets/fad_scores.json";
+  import summaryRaw from "$lib/assets/summary_metrics.csv?raw";
+
+  const evalPlots = [
+    { src: radarImg, caption: "Similarity Metrics" },
+    { src: barImg, caption: "Distance Metrics" },
+    { src: mfccImg, caption: "MFCC Per-Band MAE" },
+    { src: pcaImg, caption: "MFCC Space — PCA" },
+  ];
+
+  // Parse summary CSV
+  function parseCSV(raw) {
+    const lines = raw.trim().split(/\r?\n/);
+    const headers = lines[0].split(",");
+    const rows = lines.slice(1).map(l => l.split(","));
+    return { headers, rows };
+  }
+  const { headers: summaryHeaders, rows: summaryRows } = parseCSV(summaryRaw);
+
+  // FAD scores as sorted entries
+  const fadEntries = Object.entries(fadData).sort(([a], [b]) => a.localeCompare(b));
 
   let file = $state(null);
   let status = $state("idle"); // idle | loading | done | error
@@ -86,11 +111,57 @@
         <MelSpectrogram src={audioUrl(result.output_url)} label="Output" />
       </div>
     </section>
+  {/if}
 
-    <AudioAnalysis
-      inputSrc={audioUrl(result.input_url)}
-      outputSrc={audioUrl(result.output_url)}
-    />
+  {#if evalPlots.length}
+    <section class="eval">
+      <h2 class="eval-heading">Evaluation Results</h2>
+
+      <div class="eval-col">
+        {#each evalPlots as plot}
+          <figure class="eval-card">
+            <img src={plot.src} alt={plot.caption} />
+            <figcaption>{plot.caption}</figcaption>
+          </figure>
+        {/each}
+      </div>
+
+      {#if fadEntries.length}
+        <h3 class="eval-sub-heading">FAD Scores</h3>
+        <ul class="fad-list">
+          {#each fadEntries as [pair, score]}
+            <li class="fad-item">
+              <span class="fad-pair">{pair.replace(/_/g, " ")}</span>
+              <span class="fad-score">{score !== null ? score.toFixed(4) : "—"}</span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+
+      {#if summaryRows.length}
+        <h3 class="eval-sub-heading">Summary Metrics</h3>
+        <div class="table-wrap">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                {#each summaryHeaders as h}
+                  <th>{h}</th>
+                {/each}
+              </tr>
+            </thead>
+            <tbody>
+              {#each summaryRows as row}
+                <tr>
+                  {#each row as cell, i}
+                    <td class={i === 0 ? "pair-cell" : ""}>{isNaN(Number(cell)) || cell.trim() === "" ? cell : Number(cell).toFixed(4)}</td>
+                  {/each}
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+    </section>
   {/if}
 </main>
 
@@ -141,4 +212,94 @@
   @media (max-width: 600px) {
     .mel-grid { grid-template-columns: 1fr; }
   }
+
+  /* ── Evaluation Results ─────────────────────────────── */
+  .eval { margin-top: 3rem; }
+  .eval-heading {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #cba6f7;
+    margin: 0 0 1.5rem;
+  }
+  .eval-sub-heading {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #a6adc8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 2rem 0 0.75rem;
+  }
+  .eval-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .eval-card {
+    margin: 0;
+    border: 1px solid #45475a;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #181825;
+  }
+  .eval-card img {
+    width: 100%;
+    display: block;
+  }
+  .eval-card figcaption {
+    padding: 0.5rem 0.75rem;
+    color: #6c7086;
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  /* FAD list */
+  .fad-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .fad-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    background: #181825;
+    border: 1px solid #45475a;
+    border-radius: 8px;
+    font-size: 0.9rem;
+  }
+  .fad-pair { color: #cdd6f4; text-transform: capitalize; }
+  .fad-score { color: #cba6f7; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  /* Summary table */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid #45475a;
+    border-radius: 12px;
+  }
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+  .summary-table thead { background: #1e1e2e; }
+  .summary-table th {
+    padding: 0.55rem 0.8rem;
+    color: #a6adc8;
+    font-weight: 600;
+    text-align: left;
+    border-bottom: 1px solid #45475a;
+  }
+  .summary-table td {
+    padding: 0.5rem 0.8rem;
+    color: #cdd6f4;
+    border-bottom: 1px solid #313244;
+  }
+  .summary-table tbody tr:last-child td { border-bottom: none; }
+  .summary-table tbody tr:hover td { background: #1e1e2e; }
+  .pair-cell { color: #cba6f7; font-weight: 600; }
 </style>

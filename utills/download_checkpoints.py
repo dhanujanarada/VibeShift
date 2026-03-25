@@ -1,11 +1,3 @@
-"""
-Download model checkpoints from cloud storage.
-
-Supports:
-- Hugging Face Hub
-- Google Drive
-- AWS S3
-"""
 
 import os
 from pathlib import Path
