@@ -1,7 +1,3 @@
-"""
-Batch converter utility for audio to MIDI and MIDI to audio conversion.
-Provides easy-to-use interface for batch processing multiple files.
-"""
 
 import sys
 import os

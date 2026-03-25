@@ -21,6 +21,8 @@ data/TimGM6mb.sf2
 tmp/
 *.zip
 
-# Notebooks folder
+# Large notebooks (tracked separately)
 notebooks/
+notebooks/demos/resynth.ipynb
+notebooks/training/rock_genre_transfer_notebook.ipynb
 

@@ -51,16 +51,7 @@ class DiTBlock(nn.Module):
         )
     
     def forward(self, x, t_emb, genre_ids, attn_mask=None):
-        """
-        Args:
-            x: (B, T, D) input sequence
-            t_emb: (B, D) pre-embedded time from TimeEmbedding
-            genre_ids: (B,) genre indices
-            attn_mask: optional attention mask
-        
-        Returns:
-            (B, T, D) output
-        """
+       
         # Self-attention with residual
         x = x + self.attn(self.norm1(x), attn_mask)
         

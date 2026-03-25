@@ -40,7 +40,7 @@ from utills.audio_midi_converter import AudioMidiConverter
 # ── Constants ────────────────────────────────────────────────────────────────
 
 DAC_NATIVE_DIM  = 1024
-TARGET_GENRE_ID = 1         # 0=synth source, 1=punk target
+TARGET_GENRE_ID = 1         
 HEUN_STEPS      = 50
 
 MODEL_CONFIG = dict(
@@ -82,7 +82,7 @@ class VibeshiftInference:
         self.device      = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.hf_repo_id  = hf_repo_id
 
-        checkpoint_path     = self._hub_download("best.pt")
+        checkpoint_path     = self._hub_download("best_final.pt")
         self.soundfont_path = self._hub_download("TimGM6mb.sf2")
 
         self._load_flow_model(checkpoint_path)

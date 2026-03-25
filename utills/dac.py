@@ -53,8 +53,6 @@ class DACLatentProcessor:
         """
         Encode single audio file to DAC latents.
         
-        Returns:
-            dict with 'z' (quantized latents), 'codes', 'latents'
         """
         signal = AudioSignal(str(audio_path))
         
@@ -77,14 +75,7 @@ class DACLatentProcessor:
         output_dir: str,
         extensions: List[str] = ['.wav', '.mp3', '.flac']
     ):
-        """
-        Batch process directory and save latents as .npz files.
-        
-        Args:
-            input_dir: Source audio directory
-            output_dir: Output directory for .npz latent files
-            extensions: Audio file extensions to process
-        """
+    
         input_path = Path(input_dir)
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
@@ -123,10 +114,10 @@ class DACLatentProcessor:
                     output_file.with_suffix(".pt"),
                 )
                 
-                print(f"✓ Saved to {output_file.name}")
+                print(f"Saved to {output_file.name}")
                 
             except Exception as e:
-                print(f"✗ Error: {str(e)}")
+                print(f"Error: {str(e)}")
                 
         print(f"\nCompleted! Latents saved to {output_dir}")
     
