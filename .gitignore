@@ -23,6 +23,7 @@ tmp/
 
 # Large notebooks (tracked separately)
 notebooks/
+output/
 notebooks/demos/resynth.ipynb
 notebooks/training/rock_genre_transfer_notebook.ipynb
 
