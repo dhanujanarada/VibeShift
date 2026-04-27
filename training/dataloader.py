@@ -310,7 +310,7 @@ def create_dataloader(
     """
     # Warn if using multiprocessing with CUDA
     if num_workers > 0:
-        print(f"⚠️ Warning: Using {num_workers} workers. "
+        print(f" Warning: Using {num_workers} workers. "
               "Ensure CUDA is not initialized in worker processes.")
     
     dataset = LatentPairDataset(

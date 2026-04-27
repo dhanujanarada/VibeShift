@@ -4,11 +4,12 @@ import uuid, shutil
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-# Ensure project root is on sys.path so models/ and utills/ are importable
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Ensure project root and backend/ are on sys.path
+sys.path.insert(0, str(Path(__file__).parent.parent))   # project root → models/, utills/
+sys.path.insert(0, str(Path(__file__).parent))           # backend/ → inference/
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from inference.vibeshift_inference import VibeshiftInference
@@ -46,10 +47,15 @@ app = FastAPI(title="VibeShift API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],   # Svelte dev server
+    allow_origin_regex=r"https://.*\.vercel\.app|http://(localhost|127\.0\.0\.1):\d+",
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs")
+
 
 @app.get("/health")
 def health():

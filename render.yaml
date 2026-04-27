@@ -11,8 +11,7 @@ services:
       uv sync
     startCommand: |
       export PATH="/root/.local/bin:$PATH"
-      uv run python -m utills.download_checkpoints
-      uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
+      uv run uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHONUNBUFFERED
         value: "1"

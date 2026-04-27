@@ -202,7 +202,7 @@ def test_batch_unpacking_with_mask():
     assert mask is not None, "Mask should not be None"
     assert mask.dtype == torch.float32, "Mask should be float32"
     assert genre_ids.sum() == 0, "Genre IDs should default to 0"
-    print("✅ PASS: 3-tuple unpacking with mask works")
+    print(" PASS: 3-tuple unpacking with mask works")
     
     # Test 4-tuple (x0, x1, genre_ids, mask)
     batch_4 = (
@@ -214,7 +214,7 @@ def test_batch_unpacking_with_mask():
     x0, x1, genre_ids, mask = Trainer._unpack_batch(batch_4)
     assert genre_ids.dtype == torch.long, "Genre IDs should be long"
     assert mask.dtype == torch.float32, "Mask should be float32"
-    print("✅ PASS: 4-tuple unpacking works (x0, x1, genre_ids, mask)")
+    print(" PASS: 4-tuple unpacking works (x0, x1, genre_ids, mask)")
 
 
 def test_checkpoint_with_scheduler():
@@ -256,12 +256,12 @@ def test_checkpoint_with_scheduler():
         
         # Save checkpoint
         checkpoint_path = trainer.save_checkpoint()
-        print(f"✅ Checkpoint saved to {checkpoint_path}")
+        print(f" PASS: Checkpoint saved to {checkpoint_path}")
         
         # Verify checkpoint contains scheduler state
         checkpoint = torch.load(checkpoint_path)
         assert "scheduler_state_dict" in checkpoint, "Checkpoint should contain scheduler_state_dict"
-        print("✅ PASS: Checkpoint contains scheduler_state_dict")
+        print(" PASS: Checkpoint contains scheduler_state_dict")
         
         # Create new trainer and load checkpoint
         model2 = torch.nn.Linear(10, 10)
@@ -284,7 +284,7 @@ def test_checkpoint_with_scheduler():
         print(f"Loaded LR: {loaded_lr}")
         
         assert abs(loaded_lr - current_lr) < 1e-6, f"LR mismatch: {loaded_lr} != {current_lr}"
-        print("✅ PASS: Scheduler state correctly restored from checkpoint")
+        print(" PASS: Scheduler state correctly restored from checkpoint")
         
     finally:
         shutil.rmtree(temp_checkpoint_dir, ignore_errors=True)
@@ -322,13 +322,13 @@ def run_all_tests():
     print("\n" + "="*70)
     print("SUMMARY")
     print("="*70)
-    print(f"✅ Passed: {passed}/{len(tests)}")
-    print(f"❌ Failed: {failed}/{len(tests)}")
+    print(f" PASS: {passed}/{len(tests)}")
+    print(f" FAIL: {failed}/{len(tests)}")
     
     if failed == 0:
-        print("\n🎉 ALL TESTS PASSED! Fixes are working correctly.")
+        print("\n ALL TESTS PASSED! Fixes are working correctly.")
     else:
-        print(f"\n⚠️ {failed} test(s) failed. Please review.")
+        print(f"\n {failed} test(s) failed. Please review.")
 
 
 if __name__ == "__main__":

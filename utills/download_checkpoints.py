@@ -10,8 +10,8 @@ CHECKPOINT_FILE = CHECKPOINT_DIR / "best.pt"
 
 # Define checkpoint URLs (update these with your hosting URLs)
 CHECKPOINT_URLS = {
-    "huggingface": "https://huggingface.co/YOUR_USERNAME/vibeshift/resolve/main/best.pt",
-    "google_drive": "https://drive.google.com/uc?id=YOUR_FILE_ID&export=download",
+    "huggingface": None,
+    "google_drive": None,
 }
 
 
@@ -31,17 +31,17 @@ def download_checkpoint(url: str, output_path: Path, chunk_size: int = 8192):
     
     try:
         urllib.request.urlretrieve(url, output_path)
-        print(f"✓ Checkpoint downloaded successfully ({output_path.stat().st_size / (1024**2):.1f} MB)")
+        print(f" Checkpoint downloaded successfully ({output_path.stat().st_size / (1024**2):.1f} MB)")
         return True
     except Exception as e:
-        print(f"✗ Error downloading checkpoint: {e}")
+        print(f" Error downloading checkpoint: {e}")
         return False
 
 
 def setup_checkpoint():
     """Download checkpoint if it doesn't exist."""
     if CHECKPOINT_FILE.exists():
-        print(f"✓ Checkpoint already exists: {CHECKPOINT_FILE}")
+        print(f"Checkpoint already exists: {CHECKPOINT_FILE}")
         return True
     
     print(f"Checkpoint not found: {CHECKPOINT_FILE}")
@@ -54,7 +54,7 @@ def setup_checkpoint():
             if download_checkpoint(url, CHECKPOINT_FILE):
                 return True
     
-    print("\n✗ Failed to download checkpoint")
+    print("\n Failed to download checkpoint")
     print(f"Please download manually from:")
     print(f"  - Hugging Face: {CHECKPOINT_URLS.get('huggingface', 'N/A')}")
     print(f"  - Google Drive: {CHECKPOINT_URLS.get('google_drive', 'N/A')}")

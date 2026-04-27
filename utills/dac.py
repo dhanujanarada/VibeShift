@@ -94,7 +94,7 @@ class DACLatentProcessor:
                 # Encode to latents
                 latent_data = self.encode_file(file_path)
                 
-                # Save as .npz (preserves directory structure)
+                # Save 
                 relative_path = file_path.relative_to(input_path)
                 output_file = output_path / relative_path.with_suffix('.pt')
                 output_file.parent.mkdir(parents=True, exist_ok=True)
